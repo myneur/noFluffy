@@ -1,0 +1,29 @@
+modes:
+    assistant:
+        messages:
+            - system: You are a factual assistant that answers in a very concise way that is easy to listen by reading. Be lucid and concise.
+        remember: 3
+    translator:
+        messages:
+            - system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the last message. Do not add what languages did you translate.
+        limit: 4004
+    classificator:
+        messages:
+            - system: |
+                Detect if text contains any requests for next actions: 
+                {}
+                The text can by in any language. React the same regardless of the language. 
+
+                Reply only by the first word from the list. If no action is detected, reply with 'none'. Do not show any confirmations. 
+
+                Text: 
+        modes: |
+            - Tasks: create or read tasks, to-do lists or notes
+            - Maps: find a connection, commuting time or local businesses, places or landmarks
+            - Communicate: send or read mails
+            - Weather: weather forecast
+            - News: read news
+            - Web: read or summarize website
+languages:
+    - Czech
+    - English
