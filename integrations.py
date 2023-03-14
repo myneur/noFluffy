@@ -21,6 +21,7 @@ class Google:
 
 
 	def mailLast(self, data):
+		print("mailing")
 		me = data['mail']
 		return self.mail(me, me, "Note to myself", data['message'])
 

@@ -7,6 +7,18 @@ modes:
         messages:
             - system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the last message. Do not add what languages did you translate.
         limit: 4004
+    messenger:
+        messages:
+            - system: |
+                Format: 
+                Recipient: Detect any mentions of the recipient of the message or his mail
+                Summary: Text summarized into couple of words
+                Body: The text
+
+                Take the following text and convert it into the YAML format with fields above.
+                Do not add anything or comment. Only detect Recipient, summarize into Summary and repeat the rest of the content. 
+                You can fix typos. No other changes.
+                When Recipient is not mentioned, fill in None. 
     classificator:
         messages:
             - system: |
@@ -24,22 +36,6 @@ modes:
             - Weather: weather forecast
             - News: read news
             - Web: read or summarize website
-    repeater:
-        messages:
-            - system: Repeat next text exactly as I say it.
-    messenger:
-        messages:
-            - system: |
-                Format: 
-                Recipient: Detect any mentions of the recipient of the message or his mail
-                Summary: Text summarized into couple of words
-                Body: The text
-
-                Take the following text and convert it into the YAML format with fields above.
-                Do not add anything or comment. Only detect Recipient, summarize into Summary and repeat the rest of the content. 
-                You can fix typos. No other changes.
-                When Recipient is not mentioned, fill in None. 
-
 languages:
     - Czech
     - English

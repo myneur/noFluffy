@@ -27,83 +27,113 @@ class Chat:
 		self.ai = AI()
 		self.google = integrations.Google()
 
+		self.classificator = True
+
 		self.minChars = 5
-		self.guidance = """
-– ENTER: start and stop listening
-– n: new conversation
-- t: new translation
-– exit by Esc+Enter
-"""
-		
 
 	def go(self): 
-		print(self.guidance)
+		self.guide()
 
 		while True:
 			prompt = input()
 
+			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
 				file = self.rec.stop()
-				print("…")
 				
 				text = self.ai.voice2text(file)
 				os.system("clear")
 				print(text); print()
-
-				"""action = self.ai.classify(text)
-				if action.lower() != "none"
-					print("Action: "+ action)
-					self.say.say("Action: "+ action)"""
-
-				#if len(text.strip().split(" "))>1: ;#use it as commannd
-
-				self.ask(text)
+				self.run(text)
 
 
-			elif prompt.lower() in['\x1b', "exit", "esc"]: # ESC
-					break
-			elif 'n' == prompt:
-				self.ai.start()
-				print("New conversation started")
-			elif 't' == prompt:
-				self.ai.start("translator")
-				print("New translator started")
-			elif 'm' == prompt:
-				self.ai.start("messenger")
-				print("New messenger started")
-			elif 're' == prompt:
-				self.ask()
+			# Service controls
+			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
+				break
+			elif 'c' == prompt:
+				mode = self.ai.start()
+				print(f'New {mode} started')
 			elif '<' == prompt:
 				self.ai.loadConfig()
+			elif 'f' == prompt:
+				self.classificator = not self.classificator
+				print(f'Classifying: {self.classificator}')
 			elif 'mail' == prompt:
 				last = self.ai.lastReply()
 				if last:
-					print("Sent") if self.google.mailLast(last) else print("Failed")
+					print('Sent') if self.google.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')
+			elif prompt in AI.modes.keys():
+				self.ai.start(prompt)
+			
+
+			# ask by text prompt
 			else:
-				if(len(prompt) >= self.minChars):
-					self.ask(prompt)
+				if 'repeat' == prompt: #repeating question
+					self.run()
+				elif len(prompt) >= self.minChars:
+					self.run(prompt)
+				
+				# start listening
 				else:
-					print("Speak!\r\nENTER to get reply!")
+					print('Speak!\r\nENTER to get reply!')
 					self.say.stop()
 					self.rec.rec()
 
-	def ask(self, question=None):
-		if question and len(question) < self.minChars:
-			return question + " is not a question"
-		try:
-			response = self.ai.chat(question)
-			print(self.enahance4screen(response))
-		except Exception as e:
-			response = str(e)
-			print(response)
-		self.say.say(response)
-		print(self.guidance)
+	def run(self, question=None):
+		
+		if self.classificator:
+			action = self.ask(question, mode='classificator')
+			action = re.sub(r'[,.]', "", action.strip().lower())
+			print(f'classified as {action}')
+
+			if action == 'none':
+				print('asking question')
+				response = self.ask(question)
+
+			elif action == 'communicate':
+				print('Preparing mail')
+				response = self.ai.chat(question, mode='messenger')
+				print('Sending mail')
+				self.google.mailLast({'message':response, 'mail':self.ai.me['mail']})
+			else :
+				response  =f'I recognize that you ask about {action}. Functions related to it will be implemented in the future. Please be patient.'
+
+		else:
+			response = self.ask(question)
+			
+		self.reply(response)
+
 		return response
 
+	def reply(self, response):
+		print(self.enahance4screen(response))			
+		self.say.say(response)
+		self.guide()
+
+	def ask(self, question=None, mode=None):
+		print("…")
+		
+		if question and len(question) < self.minChars:
+			return question + ' is not a question'
+		return self.ai.chat(question, mode)
+
+
+	def guide(self):
+		options = list(AI.modes.keys())
+		options.remove(self.ai.mode)
+		options.remove('classificator')
+
+		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with classification' if self.classificator else '', str(options)))
+		print("""– 'Listen': ENTER to start and stop
+– 'Exit': Esc+Enter
+- 'Functions': f
+– 'Clear communication': r
+
+""")
 	
-	def enahance4screen(self, text):
+	def enahance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
 		linelength = len(text.split('\n')[0])
 		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
@@ -155,35 +185,58 @@ class AI:
 			openai.api_key =  key.read().strip()
 
 
-	def start(self, mode = 'assistant'):
-		self.mode = mode
+	def start(self, mode=None):
+		self.mode = mode if mode else list(AI.modes.keys())[0]
+
+		# TODO convert messages at func
 		if mode == 'classificator':
 			param = AI.modes[mode]['modes']
 		else:
 			param = self.languages
-		self.messages = [{"role": "system", "content": AI.modes[mode]['messages'][0]['system'].format(param)}]
+		self.messages = [{"role": "system", "content": AI.modes[self.mode]['messages'][0]['system'].format(param)}]
+
+		return self.mode
 
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
 		transcript = openai.Audio.transcribe("whisper-1", audio_file)
 		return transcript.text
 
-	def chat(self, question=None):
-		
-		# ask or repeat if not question
+	def chat(self, question=None, mode=None):
+		# standard question
+		if not mode: 
+			mode = self.mode
+			messages = self.messages
+		# one time ask like for classification
+		else: 
+
+			# TODO convert messages at func
+			if mode == 'classificator':
+				param = AI.modes[mode]['modes']
+			else:
+				param = self.languages
+			messages = [{"role": "system", "content": AI.modes[mode]['messages'][0]['system'].format(param)}]
+
 		if(question): 
-			self.messages.append({"role": "user", "content": question})
-		elif self.messages: 
-			self.messages.pop(-1)
+			messages.append({"role": "user", "content": question})
+		# if no question, ask the last one again
+		elif messages: 
+			messages.pop(-1)
 
 		response = openai.ChatCompletion.create(
 			model = "gpt-3.5-turbo",
-			messages = self.messages,
+			messages = messages,
 			temperature = 0
 		)
 
+		print("…")
+
 		reply = response["choices"][0]["message"]["content"]
-		self.messages.append({"role": "assistant", "content": reply})
+		
+		# store messages if in standard chain
+		if not mode: 
+			messages.append({"role": "assistant", "content": reply})
+			self.messages = messages
 		return reply
 
 	def chatStream(self, question):
@@ -247,7 +300,6 @@ class AI:
 		self.languages = " or ".join(conf['languages'])
 		self.me = conf['me']
 		AI.modes = conf['modes']
-		print(list(AI.modes.keys()))
 
 class Recorder:
 	def __init__(self):
@@ -302,7 +354,7 @@ class Synthesizer:
 		text = self.escape4shell(self.simply2read(text))
 
 		#os.system(f'say -v "{text_voice}"  "{text}"')
-		self.process = subprocess.Popen(["say", "-v", text_voice, text])
+		self.process = subprocess.Popen(["say", "-v", text_voice, text, "-r", "240"])
 		return self.process
 
 	def stop(self):
@@ -313,7 +365,8 @@ class Synthesizer:
 	def escape4shell(self, text):
 		text = text.replace("`", "'")
 		text = text.replace('"', "").replace("'", "")
-		text = text.replace('$', "\\$")
+		text = text.replace('$', "\\$") 
+		text = text.replace('!', "\\!") 
 		if text[0]=="-": # say considers starting - as a parameter
 			text = "\\"+text
 		return text
