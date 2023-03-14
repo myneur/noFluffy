@@ -11,10 +11,6 @@ import subprocess
 import re
 import yaml
 
-import requests
-
-#import termios, tty, sys # keyboard
-
 from rich import print
 import markdown	
 
@@ -28,7 +24,6 @@ class Chat:
 		self.google = integrations.Google()
 
 		self.classificator = True
-
 		self.minChars = 5
 
 	def go(self): 
@@ -40,33 +35,31 @@ class Chat:
 			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
 				file = self.rec.stop()
-				
 				text = self.ai.voice2text(file)
 				os.system("clear")
 				print(text); print()
 				self.run(text)
-
 
 			# Service controls
 			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
 				break
 			elif 'c' == prompt:
 				mode = self.ai.start()
-				print(f'New {mode} started')
+				print(f'New "{mode}" mode started')
 			elif '<' == prompt:
 				self.ai.loadConfig()
 			elif 'f' == prompt:
 				self.classificator = not self.classificator
-				print(f'Classifying: {self.classificator}')
+				print(f'Functions: {self.classificator}')
 			elif 'mail' == prompt:
-				last = self.ai.lastReply()
+				last = self.ai.getLastReply()
 				if last:
 					print('Sent') if self.google.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')
 			elif prompt in AI.modes.keys():
 				self.ai.start(prompt)
-			
+				print(f'switched to "{prompt}"')
 
 			# ask by text prompt
 			else:
@@ -82,7 +75,6 @@ class Chat:
 					self.rec.rec()
 
 	def run(self, question=None):
-		
 		if self.classificator:
 			action = self.ask(question, mode='classificator')
 			action = re.sub(r'[,.]', "", action.strip().lower())
@@ -98,12 +90,10 @@ class Chat:
 				self.google.mailLast({'message':response, 'mail':self.ai.me['mail']})
 			else :
 				response  =f'I see you are asking about "{action}". Accesing them it will be implemented later. Please be patient.'
-
 		else:
 			response = self.ask(question)
 			
 		self.reply(response)
-
 		return response
 
 	def reply(self, response):
@@ -113,24 +103,24 @@ class Chat:
 
 	def ask(self, question=None, mode=None):
 		print("…")
-		
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		return self.ai.chat(question, mode)
 
-
 	def guide(self):
 		options = list(AI.modes.keys())
 		options.remove(self.ai.mode)
-		options.remove('classificator')
+		#options.remove('classificator')
 
-		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with classification' if self.classificator else '', str(options)))
+		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classificator else '', str(options)))
 		print("""– 'Listen': ENTER to start and stop
 – 'Exit': Esc+Enter
 - 'Functions': f
-– 'Clear communication': c
-
-""")
+– 'Clear communication': c""")
+		cnt = len(self.ai.messages)-1
+		if cnt:
+			print("  History: {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
+		print()
 	
 	def enahance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
@@ -138,55 +128,24 @@ class Chat:
 		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
 
 
-
-	"""def start(self):
-		print(self.guidance)
-		old_settings = termios.tcgetattr(sys.stdin)
-		rec = self.rec
-		ai = self.ai
-		say = self.say
-
-		try:
-			tty.setraw(sys.stdin)
-			while True:
-				ch = sys.stdin.read(1)
-
-				if rec.recording:
-					file = rec.stop()
-					print("…", end="\r\n")
-					text = ai.voice2text(file)
-					print(text, end="\r\n")
-					re = ai.chat(text)
-					print(re, end="\r\n")
-					say.say(re)
-					print(self.guidance, end="\r\n")
-
-				elif ch == "\r":
-					print("Speak!", end="\r\n")
-					rec.rec()
-				if ch == 'n':
-					ai.clear_messages()
-					print("New conversation started", end="\r\n")
-				if ch == "\x1b":
-					break
-		finally:
-			termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)"""
-
-
 class AI:
 	modes = None
 
 	def __init__(self):
 		self.mode = "assistant"
+		self.messages = []
+		self.tokensUsed = 0
+
 		self.loadConfig()
 		self.start()
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
 
-
 	def start(self, mode=None):
 		self.mode = mode if mode else list(AI.modes.keys())[0]
 		self.messages = AI.modes[self.mode]['messages']
+		for message in self.messages:
+			self.tokensUsed += self.countTokens(message['content'])
 		return self.mode	
 
 	def voice2text(self, filename):
@@ -199,9 +158,11 @@ class AI:
 		if not mode: 
 			mode = self.mode
 			messages = self.messages
+			rememberMessages = True
 		# one time ask like for classification
 		else: 
 			messages = AI.modes[mode]['messages']
+			rememberMessages = False
 
 		if(question): 
 			messages.append({"role": "user", "content": question})
@@ -212,18 +173,21 @@ class AI:
 		response = openai.ChatCompletion.create(
 			model = "gpt-3.5-turbo",
 			messages = messages,
+			#max_tokens = 1024, # TODO limit response length by this
 			temperature = 0
 		)
 
 		reply = response["choices"][0]["message"]["content"]
 		
 		# store messages if in standard chain
-		if not mode: 
+		if rememberMessages: 
 			messages.append({"role": "assistant", "content": reply})
 			self.messages = messages
+			for message in messages:
+				self.tokensUsed += self.countTokens(message['content'])
 		return reply
 
-	def chatStream(self, question):
+	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append({"role": "user", "content": question})
 		response = openai.ChatCompletion.create(
 			model = "gpt-3.5-turbo",
@@ -231,50 +195,40 @@ class AI:
 			temperature = 0,
 			stream = True
 		)
-		#reply = response["choices"][0]["message"]["content"]
-
+		content = ""
 		for message in response:
 			if "choices" in message:
 				if 'content' in message["choices"][0]["delta"]:
-					text = message["choices"][0]["delta"]["content"]
-					print(text)
+					delta = message["choices"][0]["delta"]["content"]
+					print(delta)
+					content += delta
 			elif "error" in message:
 				print(message["error"]["message"])
 			time.sleep(0.1) # not sure what time should be used not to hit rate limiting. 
-		#self.messages.append({"role": "assistant", "content": reply})
-		return reply
-
-	def classify(self, text):
-		response = openai.ChatCompletion.create(
-			model = "gpt-3.5-turbo",
-			messages = [{"role": "user", "content": self.classificator + text}],
-			temperature = 0
-		)
-		classifiedAs = response["choices"][0]["message"]["content"]
-		return classifiedAs
+		"""if content:
+			self.messages.append({"role": "assistant", "content": content})"""
+		return content
 
 	def completion(self, prompt):
 		response = openai.Completion.create(
 			engine = "text-davinci-003",
 			prompt = prompt,
 			max_tokens = 1024,
-			n = 1,
 			stop = None,
-			temperature = 0, # from deterministic to creative
-			top_p = 1,
-			stream = False
+			temperature = 0
 		)
 		reply = response["choices"][0]["text"]
 		return reply
 
-	def getPrice(text):
-		words = len(re.sub(r'\s+', ' ', text).split(" "))
-		return "${: .1f} for {:,} words".format(words*tokenPrice, words)	
+	def countTokens(self, text):
+		return len(re.sub(r'\s+', ' ', text).split(" "))
 
-	def lastReply(self):
+	def getPrice(self, text):
+		return words*tokenPrice(text)
+
+	def getLastReply(self):
 		if len(self.messages)<1 or self.messages[-1]['role'] != 'assistant':
 			return None
-		
 		return {
 			'mail': self.me['mail'],
 			'message': self.messages[-1]['content']}
@@ -288,20 +242,18 @@ class AI:
 		# YAML to OpenAI message format
 		for m in modes:
 			messages = modes[m]['messages'][0]
-			key = list(messages.keys())[0]
+			role = list(messages.keys())[0]
 			if m == 'classificator':
 				param = modes[m]['modes']
 			else:
 				param = self.languages
-			modes[m]['messages'] = [{'role': key, 'content': messages[key].format(param)}]
-		
+			modes[m]['messages'] = [{'role': role, 'content': messages[role].format(param)}]
+									
 		AI.modes = modes
 		#AI.modes = conf['modes']
 
-
-
-	def formatMessage(role, content):
-		return [{'role': role, 'content': content}]
+	def asChatMessage(self, role, content):
+		return {'role': role, 'content': content}
 
 class Recorder:
 	def __init__(self):

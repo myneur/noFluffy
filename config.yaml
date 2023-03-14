@@ -19,6 +19,7 @@ modes:
                 Do not add anything or comment. Only detect Recipient, summarize into Summary and repeat the rest of the content. 
                 You can fix typos. No other changes.
                 When Recipient is not mentioned, fill in None. 
+#   messageFromConversation:
     classificator:
         messages:
             - system: |
