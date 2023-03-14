@@ -8,11 +8,10 @@ import requests
 from bs4 import BeautifulSoup
 import newspaper
 
+
 class Google:
 	def __init__(self):
 		self.key = open('../google.key', "r").read().strip()
-		
-		
 
 	def test(self, type="restaurant"):
 		endpoint_url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'

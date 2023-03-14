@@ -1,5 +1,7 @@
 import openai
 
+import time
+
 import sounddevice as sd
 import soundfile as sf
 from langdetect import detect
@@ -62,6 +64,10 @@ class Chat:
 			elif 't' == prompt:
 				self.ai.start("translator")
 				print("New translator started")
+			elif 'r' == prompt:
+				self.ask()
+			elif '<' == prompt:
+				self.ai.loadConfig()
 			else:
 				if(len(prompt) >= self.minChars):
 					self.ask(prompt)
@@ -70,14 +76,18 @@ class Chat:
 					self.say.stop()
 					self.rec.rec()
 
-	def ask(self, question):
-		if len(question) < self.minChars:
+	def ask(self, question=None):
+		if question and len(question) < self.minChars:
 			return question + " is not a question"
-		response = self.ai.chat(question)
-		print(self.enahance4screen(response))
+		try:
+			response = self.ai.chat(question)
+			print(self.enahance4screen(response))
+		except Exception as e:
+			response = e
 		self.say.say(response)
 		print(self.guidance)
 		return response
+
 	
 	def enahance4screen(self, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
@@ -125,10 +135,7 @@ class AI:
 
 	def __init__(self):
 		self.mode = "assistant"
-		conf = yaml.safe_load(open('config.yaml', 'r'))
-		self.languages = " or ".join(conf['languages'])
-		AI.modes = conf['modes']
-
+		self.loadConfig()
 		self.start()
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
@@ -147,15 +154,47 @@ class AI:
 		transcript = openai.Audio.transcribe("whisper-1", audio_file)
 		return transcript.text
 
-	def chat(self, question):
-		self.messages.append({"role": "user", "content": question})
+	def chat(self, question=None):
+		
+		# ask or repeat if not question
+		if(question): 
+			self.messages.append({"role": "user", "content": question})
+		elif self.messages: 
+			self.messages.pop(-1)
+
 		response = openai.ChatCompletion.create(
 			model = "gpt-3.5-turbo",
 			messages = self.messages,
 			temperature = 0
 		)
+
 		reply = response["choices"][0]["message"]["content"]
 		self.messages.append({"role": "assistant", "content": reply})
+		return reply
+
+	def chatStream(self, question):
+		self.messages.append({"role": "user", "content": question})
+		response = openai.ChatCompletion.create(
+			model = "gpt-3.5-turbo",
+			messages = self.messages,
+			temperature = 0,
+			stream = True
+		)
+		#reply = response["choices"][0]["message"]["content"]
+
+		for message in response:
+			if "choices" in message:
+				if 'content' in message["choices"][0]["delta"]:
+					text = message["choices"][0]["delta"]["content"]
+					print(text)
+			elif "error" in message:
+				print(message["error"]["message"])
+			time.sleep(0.1) # not sure what time should be used not to hit rate limiting. 
+
+
+
+
+		#self.messages.append({"role": "assistant", "content": reply})
 		return reply
 
 	def classify(self, text):
@@ -181,29 +220,15 @@ class AI:
 		reply = response["choices"][0]["text"]
 		return reply
 
-	def inlineFields(dictionaries):
-		return '\n'.join(
-	        '\n'.join(f"{key}:\n{dictionary[key]}\n" for key in dictionary.keys())
-	        for dictionary in dictionaries
-	    )
-		#return '\n'.join(f"{key}:\n{dictionary[key]}\n" for key in dictionary.keys())
-
-	def limit2keys(dictionaries, keys):
-		return [{key: dictionary[key] for key in keys if key in dictionary} for dictionary in dictionaries]
-
 	def getPrice(text):
 		words = len(re.sub(r'\s+', ' ', text).split(" "))
 		return "${: .1f} for {:,} words".format(words*tokenPrice, words)	
 
-	def voice2excel(self, filename, fp16=False, n=5, op_name='transcribe'):
-		audio_file= open(filename, "rb")
-		transcript = openai.Audio.transcribe("whisper-1", audio_file)
-
-
-		splitter = Splitter(transcript, n)
-		splitter.save_as_excel(f'{op_name}.xlsx')
-
-		return splitter.split_into_sentences_with_prompts()
+	def loadConfig(self):
+		conf = yaml.safe_load(open('config.yaml', 'r'))
+		self.languages = " or ".join(conf['languages'])
+		AI.modes = conf['modes']
+		print(list(AI.modes.keys()))
 
 class Recorder:
 	def __init__(self):
@@ -277,11 +302,22 @@ class Synthesizer:
 
 	def simply2read(self, text): 
 		text = text.replace("\r", "")
-		# remove code 
+		
+		# remove code blocks
 		text = re.compile(r"(```.*?```)", re.DOTALL).sub("Example code.\n", text)
-		# remove tables in 2 steps before the first leaves EOLs for some reason
-		text = re.compile(r"^\|.*?\|$", re.DOTALL|re.MULTILINE).sub("```", text)
-		text = re.compile(r"```[`\n]*", re.DOTALL).sub("Example table.\n", text)
-		return text
+		
+		# keep just first lines of table
+		#text = re.compile(r"^\|.*?\|$", re.DOTALL|re.MULTILINE).sub("Example table.\n", text) # matches lines despite MULTLINE
 
+		l = 0
+		processed = ""
+		for line in text.splitlines():
+			if re.match(r"^\|.*\|$", line.strip()):
+				l += 1
+			else:
+				l = 0;
 
+			if l <= 4:
+				processed += line +'\n'
+				
+		return processed
