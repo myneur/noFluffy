@@ -86,10 +86,9 @@ class Chat:
 		if self.classificator:
 			action = self.ask(question, mode='classificator')
 			action = re.sub(r'[,.]', "", action.strip().lower())
-			print(f'classified as {action}')
 
 			if action == 'none':
-				print('asking question')
+				print('Finding answer')
 				response = self.ask(question)
 
 			elif action == 'communicate':
@@ -98,7 +97,7 @@ class Chat:
 				print('Sending mail')
 				self.google.mailLast({'message':response, 'mail':self.ai.me['mail']})
 			else :
-				response  =f'I recognize that you ask about {action}. Functions related to it will be implemented in the future. Please be patient.'
+				response  =f'I see you are asking about "{action}". Accesing them it will be implemented later. Please be patient.'
 
 		else:
 			response = self.ask(question)
@@ -129,7 +128,7 @@ class Chat:
 		print("""– 'Listen': ENTER to start and stop
 – 'Exit': Esc+Enter
 - 'Functions': f
-– 'Clear communication': r
+– 'Clear communication': c
 
 """)
 	
@@ -187,15 +186,8 @@ class AI:
 
 	def start(self, mode=None):
 		self.mode = mode if mode else list(AI.modes.keys())[0]
-
-		# TODO convert messages at func
-		if mode == 'classificator':
-			param = AI.modes[mode]['modes']
-		else:
-			param = self.languages
-		self.messages = [{"role": "system", "content": AI.modes[self.mode]['messages'][0]['system'].format(param)}]
-
-		return self.mode
+		self.messages = AI.modes[self.mode]['messages']
+		return self.mode	
 
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
@@ -209,13 +201,7 @@ class AI:
 			messages = self.messages
 		# one time ask like for classification
 		else: 
-
-			# TODO convert messages at func
-			if mode == 'classificator':
-				param = AI.modes[mode]['modes']
-			else:
-				param = self.languages
-			messages = [{"role": "system", "content": AI.modes[mode]['messages'][0]['system'].format(param)}]
+			messages = AI.modes[mode]['messages']
 
 		if(question): 
 			messages.append({"role": "user", "content": question})
@@ -228,8 +214,6 @@ class AI:
 			messages = messages,
 			temperature = 0
 		)
-
-		print("…")
 
 		reply = response["choices"][0]["message"]["content"]
 		
@@ -299,7 +283,25 @@ class AI:
 		conf = yaml.safe_load(open('config.yaml', 'r'))
 		self.languages = " or ".join(conf['languages'])
 		self.me = conf['me']
-		AI.modes = conf['modes']
+		modes = conf['modes']
+
+		# YAML to OpenAI message format
+		for m in modes:
+			messages = modes[m]['messages'][0]
+			key = list(messages.keys())[0]
+			if m == 'classificator':
+				param = modes[m]['modes']
+			else:
+				param = self.languages
+			modes[m]['messages'] = [{'role': key, 'content': messages[key].format(param)}]
+		
+		AI.modes = modes
+		#AI.modes = conf['modes']
+
+
+
+	def formatMessage(role, content):
+		return [{'role': role, 'content': content}]
 
 class Recorder:
 	def __init__(self):
