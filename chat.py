@@ -18,11 +18,15 @@ import requests
 from rich import print
 import markdown	
 
+import integrations
+
 class Chat:
 	def __init__(self):
 		self.rec = Recorder()
 		self.say = Synthesizer()
 		self.ai = AI()
+		self.google = integrations.Google()
+
 		self.minChars = 5
 		self.guidance = """
 – ENTER: start and stop listening
@@ -64,10 +68,19 @@ class Chat:
 			elif 't' == prompt:
 				self.ai.start("translator")
 				print("New translator started")
-			elif 'r' == prompt:
+			elif 'm' == prompt:
+				self.ai.start("messenger")
+				print("New messenger started")
+			elif 're' == prompt:
 				self.ask()
 			elif '<' == prompt:
 				self.ai.loadConfig()
+			elif 'mail' == prompt:
+				last = self.ai.lastReply()
+				if last:
+					print("Sent") if self.google.mailLast(last) else print("Failed")
+				else: 
+					print('No messages')
 			else:
 				if(len(prompt) >= self.minChars):
 					self.ask(prompt)
@@ -83,7 +96,8 @@ class Chat:
 			response = self.ai.chat(question)
 			print(self.enahance4screen(response))
 		except Exception as e:
-			response = e
+			response = str(e)
+			print(response)
 		self.say.say(response)
 		print(self.guidance)
 		return response
@@ -190,10 +204,6 @@ class AI:
 			elif "error" in message:
 				print(message["error"]["message"])
 			time.sleep(0.1) # not sure what time should be used not to hit rate limiting. 
-
-
-
-
 		#self.messages.append({"role": "assistant", "content": reply})
 		return reply
 
@@ -224,9 +234,18 @@ class AI:
 		words = len(re.sub(r'\s+', ' ', text).split(" "))
 		return "${: .1f} for {:,} words".format(words*tokenPrice, words)	
 
+	def lastReply(self):
+		if len(self.messages)<1 or self.messages[-1]['role'] != 'assistant':
+			return None
+		
+		return {
+			'mail': self.me['mail'],
+			'message': self.messages[-1]['content']}
+
 	def loadConfig(self):
 		conf = yaml.safe_load(open('config.yaml', 'r'))
 		self.languages = " or ".join(conf['languages'])
+		self.me = conf['me']
 		AI.modes = conf['modes']
 		print(list(AI.modes.keys()))
 

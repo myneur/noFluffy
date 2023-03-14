@@ -8,10 +8,44 @@ import requests
 from bs4 import BeautifulSoup
 import newspaper
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
 
 class Google:
 	def __init__(self):
-		self.key = open('../google.key', "r").read().strip()
+		self.APIkey = open('../google.key', "r").read()
+		self.gmailKey = open('../gmail.key', "r").read()
+
+
+	def mailLast(self, data):
+		me = data['mail']
+		return self.mail(me, me, "Note to myself", data['message'])
+
+	def mail(self, from_address, to_address, subject, body):
+		me = from_address
+
+		smtp_server = smtplib.SMTP('smtp.gmail.com', 587)
+		smtp_server.starttls()
+		smtp_server.login(from_address, self.gmailKey)
+
+		#message = f'Subject: {subject}\n\n{body}'
+		msg = MIMEMultipart()
+		msg['From'] = from_address
+		msg['To'] = 'to_address'
+		msg['Subject'] = subject
+		msg.attach(MIMEText(body, 'plain'))
+
+
+		smtp_server.sendmail(from_address, to_address, msg.as_string())
+
+		smtp_server.quit()
+
+		return True
+
+
 
 	def test(self, type="restaurant"):
 		endpoint_url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
@@ -21,14 +55,14 @@ class Google:
 		opennau = True
 		type ='restaurant'
 
-		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.key}"
+		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.APIkey}"
 		print(request_url)
 		params={
 			'keyword':'restaurants',
 			'type':'restaurant',
 			'location':location, 
 			'radius':radius,
-			'key':self.key}
+			'key':self.APIkey}
 		print(params)
 		#response = requests.get(request_url)
 		response = requests.get(endpoint_url, params=params)
@@ -51,14 +85,14 @@ class Google:
 		opennau = True
 		type ='restaurant'
 
-		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.key}"
+		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.APIkey}"
 		print(request_url)
 		params={
 			'keyword':'restaurants',
 			'type':'restaurant',
 			'location':location, 
 			'radius':radius,
-			'key':self.key}
+			'key':self.APIkey}
 		print(params)
 		#response = requests.get(request_url)
 		response = requests.get(endpoint_url, params=params)
