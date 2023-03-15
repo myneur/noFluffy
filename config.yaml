@@ -6,6 +6,7 @@ modes:
     translator:
         messages:
             - system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the last message. Do not add what languages did you translate.
+            - append: Translate to {}
         limit: 4004
     messenger:
         messages:
@@ -34,9 +35,30 @@ modes:
             - Tasks: create or read tasks, to-do lists or notes
             - Maps: find a connection, commuting time or local businesses, places or landmarks
             - Communicate: send or read mails
-            - Weather: weather forecast
-            - News: read news
-            - Web: read or summarize website
+#            - Past: something mentioned earlier in the conversation
+#            - Weather: weather forecast
+#            - News: read news
+#            - Web: read or summarize website
+        stop: "###"
+models:
+    gpt-4-32k context:
+        pricePer1000:
+            prompt: $0.06
+            completion: $0.12
+    gpt-4-8k context:
+        pricePer1000: 
+            prompt: $0.03
+            completion: $0.06
+    gpt-3.5-turbo: #chat
+        limit: 4090
+        pricePer1000: $0.002
+    text-davinci-003: 
+        limit: 2049
+        pricePer1000: $0.02
+    whisper-1:
+        limit: 25000000
+        pricePerMin: $0.006
+
 languages:
     - Czech
     - English

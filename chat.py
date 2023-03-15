@@ -35,6 +35,7 @@ class Chat:
 			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
 				file = self.rec.stop()
+				print('…')
 				text = self.ai.voice2text(file)
 				os.system("clear")
 				print(text); print()
@@ -43,14 +44,17 @@ class Chat:
 			# Service controls
 			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
 				break
-			elif 'c' == prompt:
-				mode = self.ai.start()
-				print(f'New "{mode}" mode started')
+			elif prompt.isdigit():
+				self.ai.clearMessages(int(prompt))
+				print("Only last {} messages kept".format(prompt))
 			elif '<' == prompt:
 				self.ai.loadConfig()
 			elif 'f' == prompt:
 				self.classificator = not self.classificator
 				print(f'Functions: {self.classificator}')
+			elif 'm' == prompt:
+				for message in self.ai.messages:
+					print(message['content'])
 			elif 'mail' == prompt:
 				last = self.ai.getLastReply()
 				if last:
@@ -74,13 +78,28 @@ class Chat:
 					self.say.stop()
 					self.rec.rec()
 
+	def guide(self):
+		options = list(AI.modes.keys())
+		options.remove(self.ai.mode)
+		#options.remove('classificator')
+
+		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classificator else '', str(options)))
+		print("""– 'Listen': ENTER to start & stop
+– 'Exit': ESC (+Enter)
+- 'Functions': f
+– 'Clear' conversation: 0 or # messages to keep """)
+		cnt = len(self.ai.messages)-1
+		if cnt:
+			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
+		print()
+
 	def run(self, question=None):
 		if self.classificator:
 			action = self.ask(question, mode='classificator')
 			action = re.sub(r'[,.]', "", action.strip().lower())
 
 			if action == 'none':
-				print('Finding answer')
+				print('Thinking')
 				response = self.ask(question)
 
 			elif action == 'communicate':
@@ -106,21 +125,6 @@ class Chat:
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		return self.ai.chat(question, mode)
-
-	def guide(self):
-		options = list(AI.modes.keys())
-		options.remove(self.ai.mode)
-		#options.remove('classificator')
-
-		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classificator else '', str(options)))
-		print("""– 'Listen': ENTER to start and stop
-– 'Exit': Esc+Enter
-- 'Functions': f
-– 'Clear communication': c""")
-		cnt = len(self.ai.messages)-1
-		if cnt:
-			print("  History: {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
-		print()
 	
 	def enahance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
@@ -143,9 +147,8 @@ class AI:
 
 	def start(self, mode=None):
 		self.mode = mode if mode else list(AI.modes.keys())[0]
-		self.messages = AI.modes[self.mode]['messages']
-		for message in self.messages:
-			self.tokensUsed += self.countTokens(message['content'])
+		self.clearMessages()
+		self.tokensUsed = 0
 		return self.mode	
 
 	def voice2text(self, filename):
@@ -169,13 +172,16 @@ class AI:
 		# if no question, ask the last one again
 		elif messages: 
 			messages.pop(-1)
-
-		response = openai.ChatCompletion.create(
-			model = "gpt-3.5-turbo",
-			messages = messages,
-			#max_tokens = 1024, # TODO limit response length by this
-			temperature = 0
-		)
+		
+		try:
+			# TODO retry with openai.ChatCompletion.create(**params)
+			response = openai.ChatCompletion.create(
+				model = "gpt-3.5-turbo",
+				messages = messages,
+				#max_tokens = 1024, # TODO limit response length by this
+				temperature = 0)
+		except openai.error.InvalidRequestError as e:
+			print (f'Limit exceeded: {e}')
 
 		reply = response["choices"][0]["message"]["content"]
 		
@@ -183,9 +189,24 @@ class AI:
 		if rememberMessages: 
 			messages.append({"role": "assistant", "content": reply})
 			self.messages = messages
+			self.tokensUsed = 0
 			for message in messages:
 				self.tokensUsed += self.countTokens(message['content'])
 		return reply
+
+	def clearMessages(self, keep=0):
+		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
+		if keep != 0: 
+			if keep < len(self.messages):
+				print([1,len(self.messages)-keep])
+				try:
+					self.messages = self.messages[0:1] + self.messages[-keep:]
+				except IndexError:
+					self.messages = AI.modes[self.mode]['messages']	
+		else:
+			self.messages = AI.modes[self.mode]['messages'].copy()
+		
+
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append({"role": "user", "content": question})
