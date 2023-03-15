@@ -37,7 +37,7 @@ class Chat:
 				file = self.rec.stop()
 				print('…')
 				text = self.ai.voice2text(file)
-				os.system("clear")
+				os.system('clear')
 				print(text); print()
 				self.run(text)
 
@@ -46,7 +46,8 @@ class Chat:
 				break
 			elif prompt.isdigit():
 				self.ai.clearMessages(int(prompt))
-				print("Only last {} messages kept".format(prompt))
+				os.system('clear')
+				print("Messages cleared" if int(prompt) else "Only last {} messages kept".format(prompt))
 			elif '<' == prompt:
 				self.ai.loadConfig()
 			elif 'f' == prompt:
@@ -93,12 +94,13 @@ class Chat:
 			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
 		print()
 
-	def run(self, question=None):
+	def run(self, question):
 		if self.classificator:
+			print('classifying')
 			action = self.ask(question, mode='classificator')
 			action = re.sub(r'[,.]', "", action.strip().lower())
 
-			if action == 'none':
+			if action.strip() in ('general-assistance', 'none') :
 				print('Thinking')
 				response = self.ask(question)
 
@@ -121,7 +123,6 @@ class Chat:
 		self.guide()
 
 	def ask(self, question=None, mode=None):
-		print("…")
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		return self.ai.chat(question, mode)
@@ -134,7 +135,6 @@ class Chat:
 
 class AI:
 	modes = None
-
 	def __init__(self):
 		self.mode = "assistant"
 		self.messages = []
@@ -168,10 +168,18 @@ class AI:
 			rememberMessages = False
 
 		if(question): 
+			if 'prefix' in AI.modes[mode]:
+				question = AI.modes[mode]['prefix'] + question
+			if 'postfix' in AI.modes[mode]:	
+				question = question + AI.modes[mode]['postfix']
+				
 			messages.append({"role": "user", "content": question})
+
 		# if no question, ask the last one again
-		elif messages: 
+		elif messages and messages[-1]['role'] == 'assistant': 
 			messages.pop(-1)
+		else:
+			return None
 		
 		try:
 			# TODO retry with openai.ChatCompletion.create(**params)
@@ -198,7 +206,6 @@ class AI:
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
 		if keep != 0: 
 			if keep < len(self.messages):
-				print([1,len(self.messages)-keep])
 				try:
 					self.messages = self.messages[0:1] + self.messages[-keep:]
 				except IndexError:
@@ -264,14 +271,16 @@ class AI:
 		for m in modes:
 			messages = modes[m]['messages'][0]
 			role = list(messages.keys())[0]
-			if m == 'classificator':
-				param = modes[m]['modes']
-			else:
-				param = self.languages
-			modes[m]['messages'] = [{'role': role, 'content': messages[role].format(param)}]
+			params = [self.languages]
+
+			modes[m]['messages'] = [{'role': role, 'content': messages[role].format(*params)}]
+
+			if 'prefix' in modes[m]:
+				modes[m]['prefix'] = modes[m]['prefix']
+			if 'postfix' in modes[m]:
+				modes[m]['postfix'] = modes[m]['postfix']
 									
 		AI.modes = modes
-		#AI.modes = conf['modes']
 
 	def asChatMessage(self, role, content):
 		return {'role': role, 'content': content}

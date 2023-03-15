@@ -1,5 +1,6 @@
-modes:
+modes: # default is 1st, underscored are hidden used by system
     assistant:
+        skills: all what you can answer without any actual information
         messages:
             - system: You are a factual assistant that answers in a very concise way that is easy to listen by reading. Be lucid and concise.
         remember: 3
@@ -23,14 +24,48 @@ modes:
 #   messageFromConversation:
     classificator:
         messages:
+            - system: You are a classifier detects if user requested any following actions.
+        prefix: |
+            Detect if text contains any requests for next actions.
+
+            Actions:
+            - communicate: requests to do actions with messages like reading mail or sending SMS
+            - todos: create or read tasks, to-do lists or notes
+            - maps: commuting and driving directions, commuting time or finding venues in location
+
+            If text does not match any actions, reply with 'none'.
+
+            Examples:
+            Text:Take a note to pick up groceries
+            Action:todos
+
+            Text: send email to Anna with next text. It was great to be with you. 
+            Action:communicate
+
+            Text: what are best restaurants around
+            Action:maps
+
+            Text:
+        postfix: "\nAction:"
+#            - latest-info: all information that can't be answered generly, because they are actual, like current time
+        stop: "###"
+    _old_classificator:
+        messages:
             - system: |
                 Detect if text contains any requests for next actions: 
-                {}
-                The text can by in any language. React the same regardless of the language. 
+                - Tasks: create or read tasks, to-do lists or notes
+                - Maps: find a connection, commuting time or local businesses, places or landmarks
+                - Communicate: send or read mails
+                The text can be in any language. React the same regardless of the language. 
 
                 Reply only by the first word from the list. If no action is detected, reply with 'none'. Do not show any confirmations. 
 
                 Text: 
+        TODOpost: |
+
+            ---
+
+            Classify previous text into next categories:
         modes: |
             - Tasks: create or read tasks, to-do lists or notes
             - Maps: find a connection, commuting time or local businesses, places or landmarks
