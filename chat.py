@@ -48,6 +48,7 @@ class Chat:
 				self.ai.clearMessages(int(prompt))
 				os.system('clear')
 				print("Messages cleared" if int(prompt) else "Only last {} messages kept".format(prompt))
+				self.guide()
 			elif '<' == prompt:
 				self.ai.loadConfig()
 			elif 'f' == prompt:
@@ -307,7 +308,7 @@ class Recorder:
 	def __init__(self):
 		self.format = 'mp3'
 		self.sample_rate = 44100
-		self.file = os.path.expanduser("~/Downloads/")+"temp."+self.format
+		self.file = "/tmp/ch.sl8.jewel."+self.format
 		self.stream = sd.InputStream(samplerate=self.sample_rate, channels=1, blocksize=1024, callback=self.callback)
 		self.recording = False
 		self.audio = []
@@ -343,7 +344,7 @@ class Synthesizer:
 	def __init__(self): 
 		self.voices = {
 			'cs': {'name': 'Zuzana', 'lang':'Czech', 'speed': 240},
-			'en': {'name': 'Serena', 'lang':'English', 'speed': 220}}
+			'en': {'name': 'Serena', 'lang':'English', 'speed': 210}}
 		self.process = None
 
 	def say(self, text):
