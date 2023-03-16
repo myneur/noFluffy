@@ -192,13 +192,8 @@ class AI:
 			messages = AI.modes[mode]['messages']
 			rememberMessages = False
 
-		if(question): 
-			if 'prefix' in AI.modes[mode]:
-				question = AI.modes[mode]['prefix'] + question
-			if 'postfix' in AI.modes[mode]:	
-				question = question + AI.modes[mode]['postfix']
-				
-			messages.append({"role": "user", "content": question})
+		if(question): 				
+			messages.append({"role": "user", "content": AI.modes[mode]['template'].format(question)})
 
 		# if no question, ask the last one again
 		elif messages and messages[-1]['role'] == 'assistant': 
@@ -296,16 +291,12 @@ class AI:
 
 		# YAML to OpenAI message format
 		for m in modes:
-			messages = modes[m]['messages'][0]
-			role = list(messages.keys())[0]
+			# TODO generalize
 			params = [" or ".join(self.languages)]
-
-			modes[m]['messages'] = [{'role': role, 'content': messages[role].format(*params)}]
-
-			if 'prefix' in modes[m]:
-				modes[m]['prefix'] = modes[m]['prefix']
-			if 'postfix' in modes[m]:
-				modes[m]['postfix'] = modes[m]['postfix']
+			
+			messages = modes[m]['messages']
+			modes[m]['messages'] = [{'role': 'system', 'content': messages['system'].format(*params)}]
+			modes[m]['template'] = messages['user']
 									
 		AI.modes = modes
 
@@ -355,17 +346,17 @@ class Synthesizer:
 			'en': {'name': 'Serena', 'lang':'English', 'speed': 220}}
 		self.process = None
 
-	def say(self, text):		
-		try:
-			lang = detect(text[:100])
-			text_voice = self.voices[lang]['name']
-		except Exception: 
-			text_voice = self.voices['en']['name']
+	def say(self, text):
+		lang = detect(text[:100])
+		if lang not in self.voices:
+			lang = 'en'
+
+		voice = self.voices[lang]
 
 		text = self.escape4shell(self.simply2read(text))
 
 		#os.system(f'say -v "{text_voice}"  "{text}"')
-		self.process = subprocess.Popen(["say", "-v", text_voice, text, "-r", str(self.voices[lang]['speed'])])
+		self.process = subprocess.Popen(["say", "-v", voice['name'], text, "-r", str(voice['speed'])])
 		return self.process
 
 	def stop(self):
