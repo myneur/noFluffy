@@ -72,7 +72,7 @@ class Chat:
 					self.run()
 				
 				# multiline input
-				elif '>' == prompt[:1]:
+				elif prompt and '\\' == prompt[-1]:
 					enterCount = 0
 					while enterCount <= 2:
 						line = input()
@@ -98,7 +98,7 @@ class Chat:
 	def guide(self):
 		options = list(AI.modes.keys())
 		options.remove(self.ai.mode)
-		#options.remove('classifier')
+		options = [o for o in options if not o.startswith("_")]
 
 		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classify else '', str(options)))
 		print("""– 'Listen': ENTER to start & stop
@@ -116,7 +116,7 @@ class Chat:
 
 		if self.classify:
 			print('classifying')
-			action = self.ask(question, mode='classifier') 
+			action = self.ask(question, mode='_classifier') 
 
 			action = re.sub(r'[,.]', "", action.strip().lower())
 			if 'action:' in action:
@@ -213,7 +213,9 @@ class AI:
 				messages = messages,
 				#max_tokens = 1024, # TODO limit response length by this
 				temperature = 0)
-		except (openai.error.InvalidRequestError, openai.error.Timeout) as e:
+		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError) as e:
+			print(e)
+		except openai.error.Timeout as e:
 			print (f'Limit exceeded: {e}')
 
 		reply = response["choices"][0]["message"]["content"]

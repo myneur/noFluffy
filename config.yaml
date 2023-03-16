@@ -24,7 +24,7 @@ modes: # default is 1st, underscored are hidden used by system
 
                 When Recipient is not mentioned, fill in 'none'. 
 #   messageFromConversation:
-    classifier:
+    _classifier:
         messages:
             - system: You are a classifier detects if user requested any following actions.
         prefix: |
