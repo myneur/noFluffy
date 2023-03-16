@@ -1,8 +1,7 @@
 from chat import AI
 
 data = [
-["general-asistance", "So what is the latest version of an Android system that you know about"],
-["general-asistance","Show me an example of an inheritance in Python."],
+["none", """Show me how that prompt would look like for you, GPT-3. In the example, use categories of actions communications, todo, maps and web search."""]
 
 ]
 

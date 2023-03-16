@@ -3,12 +3,12 @@ modes: # default is 1st, underscored are hidden used by system
         skills: all what you can answer without any actual information
         messages:
             - system: You are a factual assistant that answers in a very concise way that is easy to listen by reading. Be lucid and concise.
-        remember: 3
+        remember: 6
     translator:
         messages:
-            - system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the last message. Do not add what languages did you translate.
+            - system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the message. Do not add what language did you translate.
             - append: Translate to {}
-        limit: 4004
+        remember: 2
     messenger:
         messages:
             - system: |
@@ -18,11 +18,13 @@ modes: # default is 1st, underscored are hidden used by system
                 Body: The text
 
                 Take the following text and convert it into the YAML format with fields above.
+
                 Do not add anything or comment. Only detect Recipient, summarize into Summary and repeat the rest of the content. 
                 You can fix typos. No other changes.
-                When Recipient is not mentioned, fill in None. 
+
+                When Recipient is not mentioned, fill in 'none'. 
 #   messageFromConversation:
-    classificator:
+    classifier:
         messages:
             - system: You are a classifier detects if user requested any following actions.
         prefix: |
@@ -34,6 +36,9 @@ modes: # default is 1st, underscored are hidden used by system
             - maps: commuting and driving directions, commuting time or finding venues in location
 
             If text does not match any actions, reply with 'none'.
+            The action must be exactly 1 word from the given list. 
+
+            You are not allowed to reply anything except the word representing one action above: communicate, todos or maps. 
 
             Examples:
             Text:Take a note to pick up groceries
@@ -47,29 +52,8 @@ modes: # default is 1st, underscored are hidden used by system
 
             Text:
         postfix: "\nAction:"
-#            - latest-info: all information that can't be answered generly, because they are actual, like current time
         stop: "###"
-    _old_classificator:
-        messages:
-            - system: |
-                Detect if text contains any requests for next actions: 
-                - Tasks: create or read tasks, to-do lists or notes
-                - Maps: find a connection, commuting time or local businesses, places or landmarks
-                - Communicate: send or read mails
-                The text can be in any language. React the same regardless of the language. 
-
-                Reply only by the first word from the list. If no action is detected, reply with 'none'. Do not show any confirmations. 
-
-                Text: 
-        TODOpost: |
-
-            ---
-
-            Classify previous text into next categories:
-        modes: |
-            - Tasks: create or read tasks, to-do lists or notes
-            - Maps: find a connection, commuting time or local businesses, places or landmarks
-            - Communicate: send or read mails
+#            - latest-info: all information that can't be answered generly, because they are actual, like current time
 #            - Past: something mentioned earlier in the conversation
 #            - Weather: weather forecast
 #            - News: read news

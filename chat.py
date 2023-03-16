@@ -23,7 +23,7 @@ class Chat:
 		self.ai = AI()
 		self.google = integrations.Google()
 
-		self.classificator = True
+		self.classify = True
 		self.minChars = 5
 
 	def go(self): 
@@ -51,8 +51,8 @@ class Chat:
 			elif '<' == prompt:
 				self.ai.loadConfig()
 			elif 'f' == prompt:
-				self.classificator = not self.classificator
-				print(f'Functions: {self.classificator}')
+				self.classify = not self.classify
+				print(f'Functions: {self.classify}')
 			elif 'm' == prompt:
 				for message in self.ai.messages:
 					print(message['content'])
@@ -70,21 +70,37 @@ class Chat:
 			else:
 				if 'repeat' == prompt: #repeating question
 					self.run()
+				
+				# multiline input
+				elif '>' == prompt[:1]:
+					enterCount = 0
+					while enterCount <= 2:
+						line = input()
+						prompt += '\n'+ line;
+						if line == '':
+							enterCount += 1
+						else:
+							enterCount = 0
+
+					self.run(prompt)
+
+				# single line input
 				elif len(prompt) >= self.minChars:
 					self.run(prompt)
 				
-				# start listening
+				# start listening when he hit just the enter and no other request detected
 				else:
 					print('Speak!\r\nENTER to get reply!')
 					self.say.stop()
 					self.rec.rec()
 
+
 	def guide(self):
 		options = list(AI.modes.keys())
 		options.remove(self.ai.mode)
-		#options.remove('classificator')
+		#options.remove('classifier')
 
-		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classificator else '', str(options)))
+		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classify else '', str(options)))
 		print("""– 'Listen': ENTER to start & stop
 – 'Exit': ESC (+Enter)
 - 'Functions': f
@@ -95,16 +111,22 @@ class Chat:
 		print()
 
 	def run(self, question):
-		if self.classificator:
-			print('classifying')
-			action = self.ask(question, mode='classificator')
-			action = re.sub(r'[,.]', "", action.strip().lower())
+		if not question:
+			return None
 
-			if action.strip() in ('general-assistance', 'none') :
+		if self.classify:
+			print('classifying')
+			action = self.ask(question, mode='classifier') 
+
+			action = re.sub(r'[,.]', "", action.strip().lower())
+			if 'action:' in action:
+				action = action[7:].strip()
+
+			if 'none' == action:
 				print('Thinking')
 				response = self.ask(question)
 
-			elif action == 'communicate':
+			elif 'communicate' == action:
 				print('Preparing mail')
 				response = self.ai.chat(question, mode='messenger')
 				print('Sending mail')
@@ -153,7 +175,10 @@ class AI:
 
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
-		transcript = openai.Audio.transcribe("whisper-1", audio_file)
+		try:
+			transcript = openai.Audio.transcribe("whisper-1", audio_file)
+		except openai.error.InvalidRequestError:
+			return None
 		return transcript.text
 
 	def chat(self, question=None, mode=None):
@@ -188,7 +213,7 @@ class AI:
 				messages = messages,
 				#max_tokens = 1024, # TODO limit response length by this
 				temperature = 0)
-		except openai.error.InvalidRequestError as e:
+		except (openai.error.InvalidRequestError, openai.error.Timeout) as e:
 			print (f'Limit exceeded: {e}')
 
 		reply = response["choices"][0]["message"]["content"]
@@ -263,7 +288,7 @@ class AI:
 
 	def loadConfig(self):
 		conf = yaml.safe_load(open('config.yaml', 'r'))
-		self.languages = " or ".join(conf['languages'])
+		self.languages = conf['languages']
 		self.me = conf['me']
 		modes = conf['modes']
 
@@ -271,7 +296,7 @@ class AI:
 		for m in modes:
 			messages = modes[m]['messages'][0]
 			role = list(messages.keys())[0]
-			params = [self.languages]
+			params = [" or ".join(self.languages)]
 
 			modes[m]['messages'] = [{'role': role, 'content': messages[role].format(*params)}]
 
@@ -324,21 +349,21 @@ class Recorder:
 class Synthesizer:
 	def __init__(self): 
 		self.voices = {
-			'cs': "Zuzana", 
-			'en': "Serena"}
+			'cs': {'name': 'Zuzana', 'lang':'Czech', 'speed': 240},
+			'en': {'name': 'Serena', 'lang':'English', 'speed': 220}}
 		self.process = None
 
 	def say(self, text):		
 		try:
 			lang = detect(text[:100])
-			text_voice = self.voices[lang]
+			text_voice = self.voices[lang]['name']
 		except Exception: 
-			text_voice = self.voices['en']
+			text_voice = self.voices['en']['name']
 
 		text = self.escape4shell(self.simply2read(text))
 
 		#os.system(f'say -v "{text_voice}"  "{text}"')
-		self.process = subprocess.Popen(["say", "-v", text_voice, text, "-r", "240"])
+		self.process = subprocess.Popen(["say", "-v", text_voice, text, "-r", str(self.voices[lang]['speed'])])
 		return self.process
 
 	def stop(self):
