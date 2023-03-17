@@ -3,9 +3,11 @@ modes: # default is 1st, underscored are hidden used by system
         goal: answer general questions
         version: 0.1
         messages:
-            system: You are a factual assistant that answers in a very concise way that is easy to listen by reading. Be lucid and concise.
+            system: You are a factual concise assistant. You answer in a very short way that is easy to listen by reading. Be lucid and concise. No formalities or appologies.
             user: "{}"
         remember: 6
+        model_params:
+            temperature: 0.3
     translator:
         messages:
             system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the message. Do not add what language did you translate.
@@ -17,38 +19,53 @@ modes: # default is 1st, underscored are hidden used by system
                 Text:{}
                 Translation:
         remember: 2
+        model_params:
+            temperature: 0
     messenger:
         goal: transform instructions to communicate into YAML with Instructions, Recipient, Subject, Body
 #           TODO indentify multiple recipients
-        version: 0.1
+        version: 0.2
         messages:
             system: |
-                You are a messenger who delivers messages to the given recipient in a YAML format.
+                You are a messenger converts text of the given message to folowing YAML format:
 
-                - Identify recipient
-                - Separate instructions and service from the message
-                - Modify the message only by removing instructions from it, but except for that don't change meaning or what was said
-                - You can correct grammar or fix typos. No other changes.
-                - Summarize message into short a short subject in the same language as the message. 
-                - When Recipient is not mentioned, fill in 'none'. Always address the recipient in the first person. Like "Myself" instead of "Mine"
-                - Do not change the language of the message or subject. Only Instructions should be in English.
-            user: |
                 YAML Format:
                 Instructions: "English instructions"
                 Recipient: "the recipient"
                 Service: "email"
                 Subject: "Summary"
                 Body: "Message"
+            user: |
+                Do next actions with the message:
+                - Identify Recipient, Instructions, Service and the Body of the message
+                - Do not change the meaning of the body of the message, only remove Recipient, Instructions and Service
+                - You can correct grammar or fix typos. No other changes.
+                - If the Body only refers to last conversation or message or just 'it' instead of providing a real content, set Body to 'last-message'
+                - If Recipient or Service is not mentioned, fill in 'none'. 
+                - Always summarize the message into a short subject in few words.
+                - Always address the recipient in the first person. Like 'myself' instead of 'mine'
+                - Do not change the language of the Body or Subject. Only Instructions must be in English.
+                
 
                 Examples:
                 Text: Send me an email telling that I was really surprised how well the voice recognition works.
 
                 YAML Format:
-                Instructions: "Send email"
+                Instructions: "Send eemail"
                 Recipient: "myself"
                 Service: "email"
                 Subject: "Surpring quality of voice recognition"
                 Body: "I was really surprised how well the voice recognition works."
+
+                Examples:
+                Text: Send it to me by mail.
+
+                YAML Format:
+                Instructions: "email"
+                Recipient: "myself"
+                Service: "email"
+                Subject: "Our conversation"
+                Body: "this-conversation"
 
                 Convert the following text into the YAML Format.
 
@@ -58,38 +75,25 @@ modes: # default is 1st, underscored are hidden used by system
                 {}
 
                 YAML Format:
-        stop: "###"
-    _old_messenger:
-        messages:
-            system: |
-                Format: 
-                Recipient: Detect any mentions of the recipient of the message or his mail
-                Summary: Text summarized into couple of words
-                Body: "The text"
-
-                Take the following text and convert it into the YAML format with fields above.
-
-                Do not add anything or comment. Only detect Recipient, summarize into Summary and repeat the rest of the content. 
-                You can fix typos. No other changes.
-
-                When Recipient is not mentioned, fill in 'none'. 
-            user: "{}"
-#   messageFromConversation:
+        model_params:
+            temperature: 0
+            stop: "###"
     _classifier:
+        goal: find out if text contains request for an action and identify it
+        version: 0.2
         messages:
             system: You are a classifier detects if user requested any following actions.
             user: |
-                Detect if text contains any requests for next actions.
+                Detect if text starts with a request for any of next actions:
 
                 Actions:
-                - communicate: requests to do actions with messages like reading mail or sending SMS
-                - todos: create or read tasks, to-do lists or notes
-                - maps: commuting and driving directions, commuting time or finding venues in location
-
-                If text does not match any actions, reply with 'none'.
-                The action must be exactly 1 word from the given list. 
+                - communicate: send a messages by a specified serivce like email or SMS to a specified recipient
+                - todos: add or modify to-do list or take note
+                - maps: find venues in a given location or driving directions or commuting time to it
 
                 You are not allowed to reply anything except the word representing one action above: communicate, todos or maps. 
+                Reply only with exactly 1 word representing the Action.
+                If text does not start with any request for these actions, reply with none.
 
                 Examples:
                 Text:Take a note to pick up groceries
@@ -101,21 +105,21 @@ modes: # default is 1st, underscored are hidden used by system
                 Text: what are best restaurants around
                 Action:maps
 
+                Text: Připrav text, který bude začínat oslovením čau a následující větou.
+                Action:none
+
                 Text:{}
-            Action:
-        stop: "###"
-#            - latest-info: all information that can't be answered generly, because they are actual, like current time
-#            - Past: something mentioned earlier in the conversation
-#            - Weather: weather forecast
-#            - News: read news
-#            - Web: read or summarize website
-        stop: "###"
+        model_params:
+            temperature: 0
+            stop: "###"
 models:
-    gpt-4-32k context:
+    gpt-4-32k:
+        limit: 32768
         pricePer1000:
             prompt: $0.06
             completion: $0.12
-    gpt-4-8k context:
+    gpt-4:
+        limit: 8192
         pricePer1000: 
             prompt: $0.03
             completion: $0.06

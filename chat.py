@@ -116,33 +116,49 @@ class Chat:
 			return None
 
 		if self.classify:
-			print('…classifying')
-			action = self.ask(question, mode='_classifier') 
+			print("…classifying ")
 
-			action = re.sub(r'[,.]', "", action.strip().lower())
+			# classify only start not to confuse him to much
+			firstSentences = re.split(r'(?<=\w[.?^!]) +(?=\w)', question)
+			firstSentences = ".".join(firstSentences[:2])
+			if len(firstSentences)<200:
+				firstSentences = question[:200]
+			
+			action = self.ask(firstSentences, mode='_classifier') 
+
+			# run prompt corresponding with the action that was classified
+			if action:
+				action = re.sub(r'[,.]', "", action.strip().lower())
+
 			if 'action:' in action:
 				action = action[7:].strip()
 
-			if 'none' == action:
-				print('…thinking')
+			if action in ('none', None):
+				print('…thinking\n')
 				response = self.ask(question)
 
 			elif 'communicate' == action:
 				print('…preparing message')
 				response = self.ai.chat(question, mode='messenger')
-				print('…sending')
 				try:
 					data = yaml.load(response, Loader=yaml.FullLoader)
 					if 'Body' not in data:
 						data['Body'] = response
-					data['Recipient'] = self.ai.me['mail']
 				except Exception as e:
 					print (e) 
 					data = {'Body':message, 'Subject': 'note to myself'}
+
+				if data['Body'] in ('this-conversation', 'last-message'):
+					data['Body'] = self.ai.messages[-1]['content']
+					data['Subject'] = "Our last conversation"
+
+				response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipient'], data['Service'], data['Subject'])
+
+				data['Recipient'] = self.ai.me['mail']
 				self.google.mailLast({'message':data['Body'], 'mail':self.ai.me['mail'], 'subject':data['Subject']})
-				response = "Message sent!\nSubject: {}".format(data['Subject'])
+
 			else :
-				response  =f'I see you are asking about "{action}". Accesing them it will be implemented later. Please be patient.'
+				response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
 		else:
 			response = self.ask(question)
 			
@@ -165,10 +181,11 @@ class Chat:
 		linelength = len(text.split('\n')[0])
 		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
 
-
 class AI:
 	modes = None
-	def __init__(self):
+
+	def __init__(self, model='gpt-3.5-turbo'):
+		self.model = model
 		self.mode = "assistant"
 		self.messages = []
 		self.tokensUsed = 0
@@ -188,8 +205,8 @@ class AI:
 		audio_file= open(filename, "rb")
 		try:
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
-		except openai.error.InvalidRequestError:
-			return None
+		except (openai.error.InvalidRequestError, openai.error.APIConnectionError):
+			return "Service is temporarily down. Please try again."
 		return transcript.text
 
 	def chat(self, question=None, mode=None):
@@ -215,11 +232,11 @@ class AI:
 		try:
 			# TODO retry with openai.ChatCompletion.create(**params)
 			response = openai.ChatCompletion.create(
-				model = "gpt-3.5-turbo",
+				model = self.model,
 				messages = messages,
 				#max_tokens = 1024, # TODO limit response length by this
 				temperature = 0)
-		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError) as e:
+		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError) as e:
 			print(e)
 			return None
 		except openai.error.Timeout as e:
@@ -253,7 +270,7 @@ class AI:
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append({"role": "user", "content": question})
 		response = openai.ChatCompletion.create(
-			model = "gpt-3.5-turbo",
+			model = self.model,
 			messages = self.messages,
 			temperature = 0,
 			stream = True
@@ -274,7 +291,7 @@ class AI:
 
 	def completion(self, prompt):
 		response = openai.Completion.create(
-			engine = "text-davinci-003",
+			engine = 'text-davinci-003',
 			prompt = prompt,
 			max_tokens = 1024,
 			stop = None,
@@ -355,16 +372,18 @@ class Recorder:
 class Synthesizer:
 	def __init__(self): 
 		self.voices = {
-			'cs': {'name': 'Zuzana', 'lang':'Czech', 'speed': 240},
-			'en': {'name': 'Serena', 'lang':'English', 'speed': 220}}
+			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 220},
+			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 240}}
 		self.process = None
 
-	def say(self, text):
-		lang = detect(text[:100])
-		if lang not in self.voices:
-			lang = 'en'
-
-		voice = self.voices[lang]
+	def say(self, text, lang=None):
+		try:
+			if not lang:
+				lang = detect(text[:100])
+			voice = self.voices[lang]
+		except:
+			lang = list(self.voices.keys())[0]
+			voice = self.voices[lang]
 
 		text = self.escape4shell(self.simply2read(text))
 
