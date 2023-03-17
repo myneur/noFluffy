@@ -37,6 +37,11 @@ class Chat:
 				file = self.rec.stop()
 				print('…recognizing')
 				text = self.ai.voice2text(file)
+				if not text:
+					mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
+					print(mess)
+					self.say.say(mess)
+					continue
 				os.system('clear')
 				print(text); print()
 				self.run(text)
@@ -57,6 +62,8 @@ class Chat:
 			elif 'm' == prompt:
 				for message in self.ai.messages:
 					print(message['content'])
+			elif 'v' == prompt:
+				print(self.ai.switchModel() +' model chosen')
 			elif 'mail' == prompt:
 				last = self.ai.getLastReply()
 				if last:
@@ -183,8 +190,9 @@ class Chat:
 
 class AI:
 	modes = None
+	models = ['gpt-3.5-turbo', 'gpt-4']
 
-	def __init__(self, model='gpt-3.5-turbo'):
+	def __init__(self, model=0):
 		self.model = model
 		self.mode = "assistant"
 		self.messages = []
@@ -194,6 +202,10 @@ class AI:
 		self.start()
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
+
+	def switchModel(self):
+		self.model = (self.model+1)%len(self.models)
+		return AI.models[self.model]
 
 	def start(self, mode=None):
 		self.mode = mode if mode else list(AI.modes.keys())[0]
@@ -206,7 +218,7 @@ class AI:
 		try:
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
 		except (openai.error.InvalidRequestError, openai.error.APIConnectionError):
-			return "Service is temporarily down. Please try again."
+			return None
 		return transcript.text
 
 	def chat(self, question=None, mode=None):
@@ -232,7 +244,7 @@ class AI:
 		try:
 			# TODO retry with openai.ChatCompletion.create(**params)
 			response = openai.ChatCompletion.create(
-				model = self.model,
+				model = AI.models[self.model],
 				messages = messages,
 				#max_tokens = 1024, # TODO limit response length by this
 				temperature = 0)
@@ -270,7 +282,7 @@ class AI:
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append({"role": "user", "content": question})
 		response = openai.ChatCompletion.create(
-			model = self.model,
+			model = AI.models[self.model],
 			messages = self.messages,
 			temperature = 0,
 			stream = True
