@@ -6,7 +6,7 @@ import json
 
 import requests
 from bs4 import BeautifulSoup
-import newspaper
+#import newspaper
 
 import smtplib
 from email.mime.text import MIMEText
@@ -21,9 +21,9 @@ class Google:
 
 
 	def mailLast(self, data):
-		print("mailing")
 		me = data['mail']
-		return self.mail(me, me, "Note to myself", data['message'])
+		subject = data['subject'] if 'subject' in data else "Note to myself"
+		return self.mail(me, me, subject, data['message'])
 
 	def mail(self, from_address, to_address, subject, body):
 		me = from_address
@@ -175,10 +175,10 @@ class Scraper:
 		article_text = article.get_text()
 		return article_text
 
-	def articleContent(self, url):
+	"""def articleContent(self, url):
 		article = newspaper.Article(url)
 		article.download()
 
 		article.parse()
-		return article.text
+		return article.text"""
 

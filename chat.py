@@ -35,7 +35,7 @@ class Chat:
 			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
 				file = self.rec.stop()
-				print('…')
+				print('…recognizing')
 				text = self.ai.voice2text(file)
 				os.system('clear')
 				print(text); print()
@@ -47,7 +47,7 @@ class Chat:
 			elif prompt.isdigit():
 				self.ai.clearMessages(int(prompt))
 				os.system('clear')
-				print("Messages cleared" if int(prompt) else "Only last {} messages kept".format(prompt))
+				print("Only last {} messages kept".format(prompt) if int(prompt) else "Messages cleared")
 				self.guide()
 			elif '<' == prompt:
 				self.ai.loadConfig()
@@ -116,7 +116,7 @@ class Chat:
 			return None
 
 		if self.classify:
-			print('classifying')
+			print('…classifying')
 			action = self.ask(question, mode='_classifier') 
 
 			action = re.sub(r'[,.]', "", action.strip().lower())
@@ -124,14 +124,23 @@ class Chat:
 				action = action[7:].strip()
 
 			if 'none' == action:
-				print('Thinking')
+				print('…thinking')
 				response = self.ask(question)
 
 			elif 'communicate' == action:
-				print('Preparing mail')
+				print('…preparing message')
 				response = self.ai.chat(question, mode='messenger')
-				print('Sending mail')
-				self.google.mailLast({'message':response, 'mail':self.ai.me['mail']})
+				print('…sending')
+				try:
+					data = yaml.load(response, Loader=yaml.FullLoader)
+					if 'Body' not in data:
+						data['Body'] = response
+					data['Recipient'] = self.ai.me['mail']
+				except Exception as e:
+					print (e) 
+					data = {'Body':message, 'Subject': 'note to myself'}
+				self.google.mailLast({'message':data['Body'], 'mail':self.ai.me['mail'], 'subject':data['Subject']})
+				response = "Message sent!\nSubject: {}".format(data['Subject'])
 			else :
 				response  =f'I see you are asking about "{action}". Accesing them it will be implemented later. Please be patient.'
 		else:
@@ -140,9 +149,10 @@ class Chat:
 		self.reply(response)
 		return response
 
-	def reply(self, response):
+	def reply(self, response, say=True):
 		print(self.enahance4screen(response))			
-		self.say.say(response)
+		if say:
+			self.say.say(response)
 		self.guide()
 
 	def ask(self, question=None, mode=None):
@@ -211,8 +221,10 @@ class AI:
 				temperature = 0)
 		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError) as e:
 			print(e)
+			return None
 		except openai.error.Timeout as e:
 			print (f'Limit exceeded: {e}')
+			return None
 
 		reply = response["choices"][0]["message"]["content"]
 		
@@ -344,7 +356,7 @@ class Synthesizer:
 	def __init__(self): 
 		self.voices = {
 			'cs': {'name': 'Zuzana', 'lang':'Czech', 'speed': 240},
-			'en': {'name': 'Serena', 'lang':'English', 'speed': 210}}
+			'en': {'name': 'Serena', 'lang':'English', 'speed': 220}}
 		self.process = None
 
 	def say(self, text):

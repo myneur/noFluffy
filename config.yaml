@@ -1,6 +1,7 @@
 modes: # default is 1st, underscored are hidden used by system
     assistant:
-        skills: all what you can answer without any actual information
+        goal: answer general questions
+        version: 0.1
         messages:
             system: You are a factual assistant that answers in a very concise way that is easy to listen by reading. Be lucid and concise.
             user: "{}"
@@ -17,12 +18,54 @@ modes: # default is 1st, underscored are hidden used by system
                 Translation:
         remember: 2
     messenger:
+        goal: transform instructions to communicate into YAML with Instructions, Recipient, Subject, Body
+#           TODO indentify multiple recipients
+        version: 0.1
+        messages:
+            system: |
+                You are a messenger who delivers messages to the given recipient in a YAML format.
+
+                - Identify recipient
+                - Separate instructions and service from the message
+                - Modify the message only by removing instructions from it, but except for that don't change meaning or what was said
+                - You can correct grammar or fix typos. No other changes.
+                - Summarize message into short a short subject in the same language as the message. 
+                - When Recipient is not mentioned, fill in 'none'. Always address the recipient in the first person. Like "Myself" instead of "Mine"
+                - Do not change the language of the message or subject. Only Instructions should be in English.
+            user: |
+                YAML Format:
+                Instructions: "English instructions"
+                Recipient: "the recipient"
+                Service: "email"
+                Subject: "Summary"
+                Body: "Message"
+
+                Examples:
+                Text: Send me an email telling that I was really surprised how well the voice recognition works.
+
+                YAML Format:
+                Instructions: "Send email"
+                Recipient: "myself"
+                Service: "email"
+                Subject: "Surpring quality of voice recognition"
+                Body: "I was really surprised how well the voice recognition works."
+
+                Convert the following text into the YAML Format.
+
+                ---
+
+                Text:
+                {}
+
+                YAML Format:
+        stop: "###"
+    _old_messenger:
         messages:
             system: |
                 Format: 
                 Recipient: Detect any mentions of the recipient of the message or his mail
                 Summary: Text summarized into couple of words
-                Body: The text
+                Body: "The text"
 
                 Take the following text and convert it into the YAML format with fields above.
 
