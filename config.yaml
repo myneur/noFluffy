@@ -8,6 +8,14 @@ modes: # default is 1st, underscored are hidden used by system
         remember: 6
         model_params:
             temperature: 0.3
+    pohádkobot:
+        goal: tell stories to children
+        version: 0.1
+        messages:
+            system: Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích.
+            user: "{}"
+        model_params:
+            temperature: 0.3
     translator:
         messages:
             system: You are an exact translator. You only translates from one language to another. If not specified, translate to {}. No notes, explanations, just translate the message. Do not add what language did you translate.
@@ -27,7 +35,7 @@ modes: # default is 1st, underscored are hidden used by system
         version: 0.2
         messages:
             system: |
-                You are a messenger converts text of the given message to folowing YAML format:
+                You are a messenger that converts text of the given message to folowing YAML format:
 
                 YAML Format:
                 Instructions: "English instructions"
@@ -51,7 +59,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Text: Send me an email telling that I was really surprised how well the voice recognition works.
 
                 YAML Format:
-                Instructions: "Send eemail"
+                Instructions: "Send email"
                 Recipient: "myself"
                 Service: "email"
                 Subject: "Surpring quality of voice recognition"
@@ -61,7 +69,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Text: Send it to me by mail.
 
                 YAML Format:
-                Instructions: "email"
+                Instructions: "Send email"
                 Recipient: "myself"
                 Service: "email"
                 Subject: "Our conversation"

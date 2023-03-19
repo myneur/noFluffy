@@ -23,7 +23,7 @@ class Chat:
 		self.ai = AI()
 		self.google = integrations.Google()
 
-		self.classify = True
+		self.classify = False
 		self.minChars = 5
 
 	def guide(self):
@@ -47,6 +47,7 @@ class Chat:
 		while True:
 			prompt = input()
 
+			# paste prompt from clipboard
 			if'p' == prompt:
 				prompt = self.pasteClipboard()
 
@@ -70,7 +71,7 @@ class Chat:
 			# Exit 
 			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
 				s = self.ai.stats.print()
-				self.ai.logger.log('|'+s+'\n')
+				self.ai.logger.log(s)
 				break
 
 			# Service controls
@@ -80,42 +81,51 @@ class Chat:
 				print("Only last {} messages kept".format(prompt) if int(prompt) else "Messages cleared")
 				self.guide()
 
+			# reload config
 			elif '<' == prompt:
 				self.ai.loadConfig()
 
+			# toggle functions/classifier
 			elif 'f' == prompt:
 				self.classify = not self.classify
 				print("Functions {}".format('on' if self.classify else 'off'))
 
+			# print messages
 			elif 'm' == prompt:
 				for message in self.ai.messages:
 					print(message['content'])
 
+			# log a comment
 			elif 'l' == prompt:
-				self.ai.logger.log('>'+input())
+				self.ai.logger.log('- >'+input())
 
+			# copy reply to clipboard
 			elif 'c' == prompt:
 				reply = self.ai.getLastReply()
 				if reply:
 					self.copy2clipboard(reply['message'])
 
+			# change model version
 			elif 'v' == prompt:
 				print(self.ai.switchModel() +' model chosen')
 
-			elif 'mail' == prompt:
+			# mail last reply
+			elif '@' == prompt:
 				last = self.ai.getLastReply()
 				if last:
 					print('Sent') if self.google.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')
 
+			# switch model
 			elif prompt in AI.modes.keys():
 				self.ai.start(prompt)
 				print(f'switched to "{prompt}"')
 
 			# ask by text prompt
 			else:
-				if 'repeat' == prompt: #repeating question
+				# repeat last question
+				if 'r' == prompt: #repeating question
 					self.run()
 				
 				# multiline input
@@ -199,7 +209,7 @@ class Chat:
 		times = self.ai.stats.last
 
 		if(voice_reco):
-			s.append(times['voice reco']['time'])
+			s.append(times['voice_reco']['time'])
 		if self.classify:
 			s.append(times['_classifier']['time'])
 		s.append(times[self.ai.mode]['time'])
@@ -216,7 +226,14 @@ class Chat:
 	def ask(self, question=None, mode=None):
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
-		return self.ai.chat(question, mode)["choices"][0]["message"]["content"]
+		
+		response = self.ai.chat(question, mode)
+		if 'choices' in response:
+			return response['choices'][0]['message']['content']
+		else:
+			if 'error' in response:
+				print(response['error'])
+			return None
 	
 	def enahance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
@@ -269,9 +286,9 @@ class AI:
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
 			t = time.time()-t
 
-			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'voice reco')
+			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'voice_reco')
 		except (openai.error.InvalidRequestError, openai.error.APIConnectionError):
-			self.stats.add({'errors': 1}, 'voice reco')
+			self.stats.add({'errors': 1}, 'voice_reco')
 			return None
 		return transcript
 
@@ -288,7 +305,7 @@ class AI:
 			rememberMessages = False
 
 		if(question): 				
-			messages.append({"role": "user", "content": AI.modes[mode]['template'].format(question)})
+			messages.append({'role': 'user', 'content': AI.modes[mode]['template'].format(question)})
 
 		# if no question, ask the last one again
 		elif messages and messages[-1]['role'] == 'assistant': 
@@ -296,42 +313,44 @@ class AI:
 		else:
 			return None
 		
+		
+
+		if 'model_params' in AI.modes[self.mode]:
+			params = AI.modes[self.mode]['model_params'].copy()
+		else:
+			params = {}
+		params['model'] = AI.models[self.model]
+		params['messages'] = messages
+
+			
+		t = time.time()
 		try:
-			t = time.time()
+			
 			# TODO retry with openai.ChatCompletion.create(**params)
-			response = openai.ChatCompletion.create(
-				model = AI.models[self.model],
-				messages = messages,
-				#max_tokens = 1024, # TODO limit response length by this
-				temperature = 0)
+			response = openai.ChatCompletion.create(**params)
 			t = time.time()-t
 			usage = response['usage']
 			usage['time'] = t
 			usage['items'] = len(response['choices'])
 			self.stats.add(usage, mode)
 		
-		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError) as e:
-			print(e)
-			response['choices'][0]['message']['content'] = e
-			response['choices'][0]['message']['role'] = 'error'
+		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout) as e:
 			self.stats.add({'errors': 1}, mode)
-			return response
+			return {'error': e, 'time':time.time()-t}
 		
-		except openai.error.Timeout as e:
-			print(f'Limit exceeded: {e}')
-			response['choices'][0]['message']['content'] = f'Limit exceeded. Clear messages.'
-			response['choices'][0]['message']['role'] = 'error'
-			self.stats.add({'errors': 1}, mode)
-			return response
-		
-		# store messages if in standard chain
+		# store messages when we are in standard chain
 		if rememberMessages: 
-			messages.append({"role": "assistant", "content": response["choices"][0]["message"]['content']})
+			messages.append({'role': "assistant", 'content': response['choices'][0]['message']['content']})
 			self.messages = messages
+			
 			self.tokensUsed = 0
 			for message in messages:
 				self.tokensUsed += self.countTokens(message['content'])
-			self.logger.log('|\n'+question)
+			
+			print("words/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2)))
+			self.tokensUsed = response['usage']['total_tokens']
+
+			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
 
 		return response
 
@@ -349,7 +368,7 @@ class AI:
 
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
-		self.messages.append({"role": "user", "content": question})
+		self.messages.append({'role': 'user', 'content': question})
 		response = openai.ChatCompletion.create(
 			model = AI.models[self.model],
 			messages = self.messages,
@@ -358,16 +377,16 @@ class AI:
 		)
 		content = ""
 		for message in response:
-			if "choices" in message:
-				if 'content' in message["choices"][0]["delta"]:
-					delta = message["choices"][0]["delta"]["content"]
+			if 'choices' in message:
+				if 'content' in message['choices'][0]['delta']:
+					delta = message['choices'][0]['delta']['content']
 					print(delta)
 					content += delta
 			elif "error" in message:
-				print(message["error"]["message"])
+				print(message["error"]['message'])
 			time.sleep(0.1) # not sure what time should be used not to hit rate limiting. 
 		"""if content:
-			self.messages.append({"role": "assistant", "content": content})"""
+			self.messages.append({'role': "assistant", 'content': content})"""
 		return content
 
 	def completion(self, prompt):
@@ -378,10 +397,11 @@ class AI:
 			stop = None,
 			temperature = 0
 		)
-		reply = response["choices"][0]["text"]
+		reply = response['choices'][0]["text"]
 		return reply
 
 	def countTokens(self, text):
+		# experimentally getting ~0.7-0.75 words/tokens
 		return len(re.sub(r'\s+', ' ', text).split(" "))
 
 	def getPrice(self, text):
@@ -402,13 +422,12 @@ class AI:
 
 		# YAML to OpenAI message format
 		for m in modes:
-			# TODO generalize
+			# TODO move languages and user info into user data 
 			params = [" or ".join(self.languages)]
 			
 			messages = modes[m]['messages']
 			modes[m]['messages'] = [{'role': 'system', 'content': messages['system'].format(*params)}]
 			modes[m]['template'] = messages['user']
-									
 		AI.modes = modes
 
 	def asChatMessage(self, role, content):
@@ -454,7 +473,8 @@ class Synthesizer:
 	def __init__(self): 
 		self.voices = {
 			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 200}, #220
-			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 190}} #240
+			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 210}} #240, magi:190
+
 		self.process = None
 
 	def say(self, text, lang=None):

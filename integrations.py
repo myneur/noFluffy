@@ -221,15 +221,15 @@ class Stats:
 		self.last[what] = dictionary
 
 	def print(self):
-		output = ""
+		output = "- !seq\n"
 		for mode in list(Stats.stats.keys()):
 			stat = Stats.stats[mode]
-			mess = stat['items']
+			mess = int(stat['items'])
 			if mess:
 				for key in list(stat.keys()):
 					if key == 'items':
-						output += f'{mess}× {mode}\n'
+						output += f'  - {mess}× {mode}\n'
 					else:
-						output += "{}: AVG {}\n".format(key, round(stat[key]/mess, 1))
+						output += "  - ⌀ {}: {}\n".format(key, round(stat[key]/mess, 1))
 		print(output)
 		return output
