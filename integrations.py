@@ -182,3 +182,54 @@ class Scraper:
 		article.parse()
 		return article.text"""
 
+
+class Logger:
+	logs = None
+
+	def __init__(self):
+		if not Logger.logs:
+			try:
+				Logger.logs = open('log.txt', 'a+')
+			except FileNotFoundError as e:
+				print(e)
+
+	def log(self, text):
+		try:
+			Logger.logs.write(text+'\n') # TODO concurrent use
+		except Exception as e:
+			print('Logging failed: '+e)
+
+class Stats:
+	stats = None
+
+	def __init__(self):
+		if not Stats.stats:
+			Stats.stats = {}
+		self.last = {}
+
+	def add(self, dictionary, what='general'):
+		if what not in Stats.stats.keys():
+			Stats.stats[what] = {'items':0}
+
+		stat = Stats.stats[what]
+		for key in dictionary.keys():
+			if key not in stat.keys():
+				stat[key] = float(dictionary[key])
+			else:
+				stat[key] += float(dictionary[key])
+
+		self.last[what] = dictionary
+
+	def print(self):
+		output = ""
+		for mode in list(Stats.stats.keys()):
+			stat = Stats.stats[mode]
+			mess = stat['items']
+			if mess:
+				for key in list(stat.keys()):
+					if key == 'items':
+						output += f'{mess}× {mode}\n'
+					else:
+						output += "{}: AVG {}\n".format(key, round(stat[key]/mess, 1))
+		print(output)
+		return output

@@ -26,50 +26,89 @@ class Chat:
 		self.classify = True
 		self.minChars = 5
 
+	def guide(self):
+		options = list(AI.modes.keys())
+		options.remove(self.ai.mode)
+		options = [o for o in options if not o.startswith("_")]
+
+		print("\nI'm '{}'. Switch to {}".format(self.ai.mode, str(options)))
+		print("""– 'Listen': ENTER to start & stop
+– 'Exit': ESC (+Enter)
+- 'Functions' are '{}': f 
+– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classify else 'off'))
+		cnt = len(self.ai.messages)-1
+		if cnt:
+			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
+		print()
+
 	def go(self): 
 		self.guide()
 
 		while True:
 			prompt = input()
 
+			if'p' == prompt:
+				prompt = self.pasteClipboard()
+
 			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
 				file = self.rec.stop()
 				print('…recognizing')
-				text = self.ai.voice2text(file)
-				if not text:
+				transcript = self.ai.voice2text(file)
+				if not transcript:
 					mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
 					print(mess)
 					self.say.say(mess)
 					continue
 				os.system('clear')
-				print(text); print()
-				self.run(text)
+				
+				text = transcript.text
+				print(text+'\n'); 
+				self.run(text, True)
+
+
+			# Exit 
+			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
+				s = self.ai.stats.print()
+				self.ai.logger.log('|'+s+'\n')
+				break
 
 			# Service controls
-			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
-				break
 			elif prompt.isdigit():
 				self.ai.clearMessages(int(prompt))
 				os.system('clear')
 				print("Only last {} messages kept".format(prompt) if int(prompt) else "Messages cleared")
 				self.guide()
+
 			elif '<' == prompt:
 				self.ai.loadConfig()
+
 			elif 'f' == prompt:
 				self.classify = not self.classify
-				print(f'Functions: {self.classify}')
+				print("Functions {}".format('on' if self.classify else 'off'))
+
 			elif 'm' == prompt:
 				for message in self.ai.messages:
 					print(message['content'])
+
+			elif 'l' == prompt:
+				self.ai.logger.log('>'+input())
+
+			elif 'c' == prompt:
+				reply = self.ai.getLastReply()
+				if reply:
+					self.copy2clipboard(reply['message'])
+
 			elif 'v' == prompt:
 				print(self.ai.switchModel() +' model chosen')
+
 			elif 'mail' == prompt:
 				last = self.ai.getLastReply()
 				if last:
 					print('Sent') if self.google.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')
+
 			elif prompt in AI.modes.keys():
 				self.ai.start(prompt)
 				print(f'switched to "{prompt}"')
@@ -102,23 +141,7 @@ class Chat:
 					self.say.stop()
 					self.rec.rec()
 
-
-	def guide(self):
-		options = list(AI.modes.keys())
-		options.remove(self.ai.mode)
-		options = [o for o in options if not o.startswith("_")]
-
-		print("\nI'm '{}'{}. Switch to {}".format(self.ai.mode, ' with Functions' if self.classify else '', str(options)))
-		print("""– 'Listen': ENTER to start & stop
-– 'Exit': ESC (+Enter)
-- 'Functions': f
-– 'Clear' conversation: 0 or # messages to keep """)
-		cnt = len(self.ai.messages)-1
-		if cnt:
-			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
-		print()
-
-	def run(self, question):
+	def run(self, question, voice_reco=False):
 		if not question:
 			return None
 
@@ -136,9 +159,8 @@ class Chat:
 			# run prompt corresponding with the action that was classified
 			if action:
 				action = re.sub(r'[,.]', "", action.strip().lower())
-
-			if 'action:' in action:
-				action = action[7:].strip()
+				if 'action:' in action:
+					action = action[7:].strip()
 
 			if action in ('none', None):
 				print('…thinking\n')
@@ -146,11 +168,13 @@ class Chat:
 
 			elif 'communicate' == action:
 				print('…preparing message')
-				response = self.ai.chat(question, mode='messenger')
+				response = self.ask(question, mode='messenger')
+				
 				try:
 					data = yaml.load(response, Loader=yaml.FullLoader)
 					if 'Body' not in data:
 						data['Body'] = response
+				
 				except Exception as e:
 					print (e) 
 					data = {'Body':message, 'Subject': 'note to myself'}
@@ -170,6 +194,17 @@ class Chat:
 			response = self.ask(question)
 			
 		self.reply(response)
+
+		s = []
+		times = self.ai.stats.last
+
+		if(voice_reco):
+			s.append(times['voice reco']['time'])
+		if self.classify:
+			s.append(times['_classifier']['time'])
+		s.append(times[self.ai.mode]['time'])
+
+		print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
 		return response
 
 	def reply(self, response, say=True):
@@ -181,12 +216,23 @@ class Chat:
 	def ask(self, question=None, mode=None):
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
-		return self.ai.chat(question, mode)
+		return self.ai.chat(question, mode)["choices"][0]["message"]["content"]
 	
 	def enahance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
 		linelength = len(text.split('\n')[0])
 		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
+
+	def copy2clipboard(self, text):
+		print(text)
+		subprocess.Popen('pbcopy', stdin=subprocess.PIPE, universal_newlines=True).communicate(text)
+		self.pasteClipboard()
+
+	def pasteClipboard(_):
+		'cs_CZ.UTF-8'
+		text = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8')
+		print(text)
+		return text
 
 class AI:
 	modes = None
@@ -197,6 +243,9 @@ class AI:
 		self.mode = "assistant"
 		self.messages = []
 		self.tokensUsed = 0
+
+		self.logger = integrations.Logger()
+		self.stats = integrations.Stats()
 
 		self.loadConfig()
 		self.start()
@@ -216,13 +265,19 @@ class AI:
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
 		try:
+			t = time.time()
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
+			t = time.time()-t
+
+			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'voice reco')
 		except (openai.error.InvalidRequestError, openai.error.APIConnectionError):
+			self.stats.add({'errors': 1}, 'voice reco')
 			return None
-		return transcript.text
+		return transcript
 
 	def chat(self, question=None, mode=None):
 		# standard question
+
 		if not mode: 
 			mode = self.mode
 			messages = self.messages
@@ -242,29 +297,43 @@ class AI:
 			return None
 		
 		try:
+			t = time.time()
 			# TODO retry with openai.ChatCompletion.create(**params)
 			response = openai.ChatCompletion.create(
 				model = AI.models[self.model],
 				messages = messages,
 				#max_tokens = 1024, # TODO limit response length by this
 				temperature = 0)
+			t = time.time()-t
+			usage = response['usage']
+			usage['time'] = t
+			usage['items'] = len(response['choices'])
+			self.stats.add(usage, mode)
+		
 		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError) as e:
 			print(e)
-			return None
+			response['choices'][0]['message']['content'] = e
+			response['choices'][0]['message']['role'] = 'error'
+			self.stats.add({'errors': 1}, mode)
+			return response
+		
 		except openai.error.Timeout as e:
-			print (f'Limit exceeded: {e}')
-			return None
-
-		reply = response["choices"][0]["message"]["content"]
+			print(f'Limit exceeded: {e}')
+			response['choices'][0]['message']['content'] = f'Limit exceeded. Clear messages.'
+			response['choices'][0]['message']['role'] = 'error'
+			self.stats.add({'errors': 1}, mode)
+			return response
 		
 		# store messages if in standard chain
 		if rememberMessages: 
-			messages.append({"role": "assistant", "content": reply})
+			messages.append({"role": "assistant", "content": response["choices"][0]["message"]['content']})
 			self.messages = messages
 			self.tokensUsed = 0
 			for message in messages:
 				self.tokensUsed += self.countTokens(message['content'])
-		return reply
+			self.logger.log('|\n'+question)
+
+		return response
 
 	def clearMessages(self, keep=0):
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
@@ -384,8 +453,8 @@ class Recorder:
 class Synthesizer:
 	def __init__(self): 
 		self.voices = {
-			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 220},
-			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 240}}
+			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 200}, #220
+			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 190}} #240
 		self.process = None
 
 	def say(self, text, lang=None):
@@ -419,7 +488,7 @@ class Synthesizer:
 		
 
 	def simply2read(self, text): 
-		text = text.replace("\r", "")
+		#text = text.replace("\r", "")
 		
 		# remove code blocks
 		text = re.compile(r"(```.*?```)", re.DOTALL).sub("Example code.\n", text)
@@ -437,5 +506,8 @@ class Synthesizer:
 
 			if l <= 4:
 				processed += line +'\n'
+
+		# decrease wokiness
+		processed = re.sub(r'\b(\w{3,})/á\b', r'\1', processed)
 				
 		return processed

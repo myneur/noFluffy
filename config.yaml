@@ -82,24 +82,24 @@ modes: # default is 1st, underscored are hidden used by system
         goal: find out if text contains request for an action and identify it
         version: 0.2
         messages:
-            system: You are a classifier detects if user requested any following actions.
+            system: You are a classifier that detects whether the user has requested any following actions.
             user: |
-                Detect if text starts with a request for any of next actions:
+                Detect if text starts with a request for any of the next actions:
 
                 Actions:
-                - communicate: send a messages by a specified serivce like email or SMS to a specified recipient
-                - todos: add or modify to-do list or take note
-                - maps: find venues in a given location or driving directions or commuting time to it
+                - communicate: send a messages by a specified service (like email or SMS) to a specified recipient
+                - todos: add or modify a to-do list or take a note
+                - maps: find venues in a given location or get driving directions or commuting time to a location
 
                 You are not allowed to reply anything except the word representing one action above: communicate, todos or maps. 
                 Reply only with exactly 1 word representing the Action.
-                If text does not start with any request for these actions, reply with none.
+                If text does not start with a request for any of these actions, reply with none.
 
                 Examples:
                 Text:Take a note to pick up groceries
                 Action:todos
 
-                Text: send email to Anna with next text. It was great to be with you. 
+                Text: send email to Anna with the following text. It was great to be with you. 
                 Action:communicate
 
                 Text: what are best restaurants around
@@ -114,26 +114,28 @@ modes: # default is 1st, underscored are hidden used by system
             max_tokens: 512
             stop: "###"
 models:
-    gpt-4-32k:
-        limit: 32768
-        pricePer1000:
-            prompt: $0.06
-            completion: $0.12
-    gpt-4:
-        limit: 8192
-        pricePer1000: 
-            prompt: $0.03
-            completion: $0.06
-    gpt-3.5-turbo: #chat
-        limit: 4090
-        pricePer1000: $0.002
-    text-davinci-003: 
-        limit: 2049
-        pricePer1000: $0.02
-    whisper-1:
-        limit: 25000000
-        pricePerMin: $0.006
-
+    voice:
+        whisper-1:
+            limit: 25000000
+            pricePerMin: $0.006
+    chat:
+        gpt-3.5-turbo: #chat
+            limit: 4090
+            pricePer1000: $0.002
+        gpt-4:
+            limit: 8192
+            pricePer1000: 
+                prompt: $0.03
+                completion: $0.06
+    _gpt-4-32k:
+            limit: 32768
+            pricePer1000:
+                prompt: $0.06
+                completion: $0.12
+    completion:
+        text-davinci-003: 
+            limit: 2049
+            pricePer1000: $0.02
 languages:
     - Czech
     - English
