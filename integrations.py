@@ -3,6 +3,7 @@ import subprocess
 import re
 import pandas as pd
 import json
+import yaml
 
 import requests
 from bs4 import BeautifulSoup
@@ -21,16 +22,16 @@ class Google:
 
 
 	def mailLast(self, data):
-		me = data['mail']
+		me = 'Voicelet assistant<'+data['mail']+'>'
 		subject = data['subject'] if 'subject' in data else "Note to myself"
 		return self.mail(me, me, subject, data['message'])
 
 	def mail(self, from_address, to_address, subject, body):
-		me = from_address
+		loginMail = "myneur@gmail.com"
 
 		smtp_server = smtplib.SMTP('smtp.gmail.com', 587)
 		smtp_server.starttls()
-		smtp_server.login(from_address, self.gmailKey)
+		smtp_server.login(loginMail, self.gmailKey)
 
 		#message = f'Subject: {subject}\n\n{body}'
 		msg = MIMEMultipart()
@@ -46,6 +47,36 @@ class Google:
 
 		return True
 
+	def populateTestMailbox(self):
+		mails = yaml.safe_load(open('logs/in.yaml', 'r'))
+		to = "Petr Meissner <petr@sl8.ch>"
+		mails = [{'Contact': "Mark", 'Subject':"Design Approval Request"}]
+		if( input() == 'yes'):
+			for mail in mails:
+				from_address = mail['Contact'] + " <myneur@gmail.com>"
+				print("{}: {}".format(mail['Contact'], mail['Subject']))
+				self.mail(from_address, to, mail['Subject'], mail['Subject'])
+
+	def summarizeMailbox(self):
+		return """
+- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
+- important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
+
+- Then there 2 other unread and 34 read mails.
+
+Do you want me to summarize them?
+		"""
+
+	def scheduleMeeting(self, request):
+		try:
+			word_pattern = r'with\s+([\w\s]+?)in|at|for|to'
+			match = re.search(word_pattern, request)
+			recipients = match.group(1).strip()
+			text = f"""Meeting with {recipients} scheduled at 5 pm """
+		except:
+			text = """Meeting scheduled at 5 pm """			
+
+		return text
 
 
 	def test(self, type="restaurant"):
@@ -189,7 +220,8 @@ class Logger:
 	def __init__(self):
 		if not Logger.logs:
 			try:
-				Logger.logs = open('log.txt', 'a+')
+				if not Logger.logs:
+					Logger.logs = open('logs/log.yaml', 'a+')
 			except FileNotFoundError as e:
 				print(e)
 
@@ -221,15 +253,16 @@ class Stats:
 		self.last[what] = dictionary
 
 	def print(self):
-		output = "- !seq\n"
+		output = "- stats:\n"
 		for mode in list(Stats.stats.keys()):
 			stat = Stats.stats[mode]
-			mess = int(stat['items'])
-			if mess:
+			items = int(stat['items'])
+			if items:
+				output += f'    {mode}:\n'
 				for key in list(stat.keys()):
 					if key == 'items':
-						output += f'  - {mess}× {mode}\n'
+						output += f'      - items:{items}\n'
 					else:
-						output += "  - ⌀ {}: {}\n".format(key, round(stat[key]/mess, 1))
+						output += "      - ⌀{}: {}\n".format(key, round(stat[key]/items, 1))
 		print(output)
 		return output

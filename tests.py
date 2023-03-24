@@ -1,3 +1,4 @@
+import unittest
 import yaml
 import time
 
@@ -6,39 +7,44 @@ import time
 from chat import AI
 #sys.path.remove('../')
 
-def classifier_test():
-	tests = yaml.safe_load(open('testdata/classified.tests.yaml', 'r'))
-	output = open("testdata/classified.report.yml", "w")
 
-	passed = 0
-	failed = 0
-	price = 0
-	tokens = 0
-	report = {'ok': [], 'ko':[]}
-	
-	classifier = AI()
+class TestTranslate(unittest.TestCase):
+	def setUp(self):
+		with open('testdata/classified.tests.yaml', 'r') as file:
+			self.tests = yaml.safe_load(file)
+		with open("testdata/classified.report.yaml", "w") as file:
+			self.output = file
+		self.passed = 0
+		self.failed = 0
+		self.price = 0
+		self.tokens = 0
+		self.report = {'ok': [], 'ko':[]}
+		self.classifier = AI()
 
-	for test in tests:
+	def test_classifier_assertions(self):
+		for test in self.tests:	
+			
+			t = time.time()
+			
+			reply = self.classifier.chat(test['q'], '_classifier')
+			result = reply['choices'][0]['message']['content']
+			
+			t = time.time()-t
+
+			
+			if self.assertEqual(result, test['ok'], 'in: '+test['q'][:20]+'…'):
+				test['ko'] = result
+				tes['seconds'] = round(t, 1)
+				report['ko'].append(test)
+				
+			else:
+				test.pop['ko']
+				report['ok'].append(test)
+
+			return # TESTING TEST FIRST!!
 		
-		print (test['q'])
-		
-		
-		t = time.time()
-		reply = classifier.chat(test['q'], '_classifier')
-		t = time.time()-t
-		print(t)
-		if reply != test['ok']:
-			test['ko'] = reply
-			tes['seconds'] = round(t, 1)
-			report['ko'].append(test)
-			print(test)
-		else:
-			test.pop['ko']
-			report['ok'].append(test)
+		yaml.dump(report, output)
 
-		return # TESTING TEST FIRST!!
-	
-	yaml.dump(report, output)
-    
 
-classifier_test()
+if __name__ == '__main__':
+	unittest.main()

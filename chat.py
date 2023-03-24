@@ -8,6 +8,7 @@ from langdetect import detect
 
 import os
 import subprocess 
+#import shlex
 import re
 import yaml
 
@@ -16,12 +17,16 @@ import markdown
 
 import integrations
 
+import traceback
+
 class Chat:
 	def __init__(self):
 		self.rec = Recorder()
 		self.say = Synthesizer()
 		self.ai = AI()
 		self.google = integrations.Google()
+
+		self.logger = integrations.Logger()
 
 		self.classify = False
 		self.minChars = 5
@@ -31,11 +36,14 @@ class Chat:
 		options.remove(self.ai.mode)
 		options = [o for o in options if not o.startswith("_")]
 
-		print("\nI'm '{}'. Switch to {}".format(self.ai.mode, str(options)))
+		print("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
+
 		print("""– 'Listen': ENTER to start & stop
 – 'Exit': ESC (+Enter)
 - 'Functions' are '{}': f 
 – 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classify else 'off'))
+
+
 		cnt = len(self.ai.messages)-1
 		if cnt:
 			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
@@ -71,11 +79,13 @@ class Chat:
 			# Exit 
 			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
 				s = self.ai.stats.print()
-				self.ai.logger.log(s)
+				self.logger.log(s)
 				break
 
 			# Service controls
-			elif prompt.isdigit():
+
+			# Clear history or remove messages
+			elif prompt.isdigit() or (len(prompt)>1 and prompt[0]=='-' and prompt[1:].isdigit()):
 				self.ai.clearMessages(int(prompt))
 				os.system('clear')
 				print("Only last {} messages kept".format(prompt) if int(prompt) else "Messages cleared")
@@ -97,7 +107,7 @@ class Chat:
 
 			# log a comment
 			elif 'l' == prompt:
-				self.ai.logger.log('- >'+input())
+				self.logger.log('- note: '+input())
 
 			# copy reply to clipboard
 			elif 'c' == prompt:
@@ -131,7 +141,7 @@ class Chat:
 				# multiline input
 				elif prompt and '\\' == prompt[-1]:
 					enterCount = 0
-					while enterCount <= 2:
+					while enterCount <= 1:
 						line = input()
 						prompt += '\n'+ line;
 						if line == '':
@@ -153,6 +163,7 @@ class Chat:
 
 	def run(self, question, voice_reco=False):
 		if not question:
+			print('repeating not implemented yet')
 			return None
 
 		if self.classify:
@@ -164,7 +175,7 @@ class Chat:
 			if len(firstSentences)<200:
 				firstSentences = question[:200]
 			
-			action = self.ask(firstSentences, mode='_classifier') 
+			action = self.ask(firstSentences, mode='_classifier', rememberMessages=False) 
 
 			# run prompt corresponding with the action that was classified
 			if action:
@@ -179,65 +190,119 @@ class Chat:
 			elif 'communicate' == action:
 				print('…preparing message')
 				response = self.ask(question, mode='messenger')
-				
+				if response:
+					try:
+						data = yaml.load(response, Loader=yaml.FullLoader)
+						if 'Body' not in data:
+							data['Body'] = response
+					
+					except Exception as e:
+						print (e) 
+						data = {'Body':message, 'Subject': 'note to myself'}
+
+					if data['Body'] in ('this-conversation', 'last-message'):
+						data['Body'] = self.ai.messages[-1]['content']
+						data['Subject'] = "Our conversation"
+
+					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipient'], data['Service'], data['Subject'])
+
+					data['Recipient'] = self.ai.me['mail']
+					self.google.mailLast({'message':data['Body'], 'mail':self.ai.me['mail'], 'subject':data['Subject']})
+
+			elif 'inbox' == action:
+				print('…summarizing inbox')
+				time.sleep(3)
+				response = self.google.summarizeMailbox()
+
+			elif 'calendar' == action:
+				response = self.google.scheduleMeeting(question)
+
+			elif 'write' == action:
+				print('…writing text')
+				response = self.ask(question, mode='writer', rememberMessages=1)
+
+				response = "Here's the text:\n\n" + response + "\n\nDo you want me to send it?"
+
+			elif 'command' == action:
+				response = None
+				#pattern = [['become, be', 'work'], ['my', 'a', 'as', None]]
+				first_word = re.findall(r'\w+', question)[0].lower()
 				try:
-					data = yaml.load(response, Loader=yaml.FullLoader)
-					if 'Body' not in data:
-						data['Body'] = response
-				
-				except Exception as e:
-					print (e) 
-					data = {'Body':message, 'Subject': 'note to myself'}
+					if first_word in ('become', 'be'):
+						last_word = re.findall(r'\w+', question)[-1].lower()
+						modes = AI.modes.keys()
 
-				if data['Body'] in ('this-conversation', 'last-message'):
-					data['Body'] = self.ai.messages[-1]['content']
-					data['Subject'] = "Our last conversation"
+						if last_word in modes:
+							response = f"Now I'm {last_word}"
+							self.ai.start(last_word)
+						else:
+							response = f"Sorry, I can't be '{last_word}' yet"
+				except:
+					pass
 
-				response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipient'], data['Service'], data['Subject'])
+				if not response:
+					response = self.ask(question)
 
-				data['Recipient'] = self.ai.me['mail']
-				self.google.mailLast({'message':data['Body'], 'mail':self.ai.me['mail'], 'subject':data['Subject']})
+				#if re.search(r"\b(?:become my|be my)\s+(\w+)\b", question.strip()): mode = match.group(1).strip()
 
-			else :
+			else:
 				response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
 		else:
+			print('…thinking\n')
 			response = self.ask(question)
 			
 		self.reply(response)
 
-		s = []
-		times = self.ai.stats.last
+		# log stats (time, length)
+		try:
+			s = []
+			times = self.ai.stats.last
+			if(voice_reco):
+				s.append(times['whisper-1']['time'])
+			if self.classify:
+				s.append(times['_classifier']['time'])
+			s.append(times[self.ai.mode]['time'])
+		except Exception:
+			pass
 
-		if(voice_reco):
-			s.append(times['voice_reco']['time'])
-		if self.classify:
-			s.append(times['_classifier']['time'])
-		s.append(times[self.ai.mode]['time'])
-
-		print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
+		#print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
 		return response
 
 	def reply(self, response, say=True):
-		print(self.enahance4screen(response))			
-		if say:
-			self.say.say(response)
-		self.guide()
+		if response:
+			print(self.enhance4screen(response))			
+			if say:
+				self.say.say(response)
+			self.guide()
 
-	def ask(self, question=None, mode=None):
+	def ask(self, question=None, mode=None, rememberMessages=True):
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		
-		response = self.ai.chat(question, mode)
+		if rememberMessages:
+			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
+		response = self.ai.chat(question, mode, rememberMessages)
+		
 		if 'choices' in response:
 			return response['choices'][0]['message']['content']
 		else:
 			if 'error' in response:
-				print(response['error'])
+				mess = str(response['error'])
+				if mess:
+					print(mess)
+					self.say.say(mess)
+				self.logger.log('- error: '+mess+ '\n')
+
+			if 'traceback' in response:
+				print(response['traceback'])
+			
 			return None
+		
 	
-	def enahance4screen(_, text):
+	def enhance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
-		linelength = len(text.split('\n')[0])
+		#linelength = len(text.split('\n')[0])
+		linelength = 10
 		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
 
 	def copy2clipboard(self, text):
@@ -261,11 +326,11 @@ class AI:
 		self.messages = []
 		self.tokensUsed = 0
 
-		self.logger = integrations.Logger()
 		self.stats = integrations.Stats()
 
 		self.loadConfig()
 		self.start()
+
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
 
@@ -286,23 +351,21 @@ class AI:
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
 			t = time.time()-t
 
-			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'voice_reco')
-		except (openai.error.InvalidRequestError, openai.error.APIConnectionError):
-			self.stats.add({'errors': 1}, 'voice_reco')
+			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
+		except (openai.error.InvalidRequestError, openai.error.APIConnectionError, openai.error.APIError, Exception):
+			self.stats.add({'errors': 1}, 'whisper-1')
 			return None
 		return transcript
 
-	def chat(self, question=None, mode=None):
+	def chat(self, question=None, mode=None, rememberMessages=True): # remember # of messages of all if True
 		# standard question
 
 		if not mode: 
 			mode = self.mode
 			messages = self.messages
-			rememberMessages = True
 		# one time ask like for classification
 		else: 
 			messages = AI.modes[mode]['messages']
-			rememberMessages = False
 
 		if(question): 				
 			messages.append({'role': 'user', 'content': AI.modes[mode]['template'].format(question)})
@@ -314,7 +377,6 @@ class AI:
 			return None
 		
 		
-
 		if 'model_params' in AI.modes[self.mode]:
 			params = AI.modes[self.mode]['model_params'].copy()
 		else:
@@ -335,22 +397,25 @@ class AI:
 			self.stats.add(usage, mode)
 		
 		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout) as e:
-			self.stats.add({'errors': 1}, mode)
-			return {'error': e, 'time':time.time()-t}
+			t = time.time()-t
+			self.stats.add({'errors': 1, 'time': t}, mode)
+			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
 		
 		# store messages when we are in standard chain
 		if rememberMessages: 
 			messages.append({'role': "assistant", 'content': response['choices'][0]['message']['content']})
-			self.messages = messages
+			
+			if type(rememberMessages) in [int]:
+				self.messages = messages[rememberMessages:]
+			else:
+				self.messages = messages
 			
 			self.tokensUsed = 0
 			for message in messages:
 				self.tokensUsed += self.countTokens(message['content'])
 			
-			print("words/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2)))
+			#print("\nwords/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2))+"\n")
 			self.tokensUsed = response['usage']['total_tokens']
-
-			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
 
 		return response
 
@@ -359,7 +424,11 @@ class AI:
 		if keep != 0: 
 			if keep < len(self.messages):
 				try:
-					self.messages = self.messages[0:1] + self.messages[-keep:]
+					if keep > 0:
+						self.messages = self.messages[0:1] + self.messages[-keep:]
+					else:
+						if len(self.messages)>1:
+							self.messages.pop()
 				except IndexError:
 					self.messages = AI.modes[self.mode]['messages']	
 		else:
@@ -415,7 +484,9 @@ class AI:
 			'message': self.messages[-1]['content']}
 
 	def loadConfig(self):
-		conf = yaml.safe_load(open('config.yaml', 'r'))
+		with open('config.yaml', 'r') as file:
+			conf = yaml.safe_load(file)
+		
 		self.languages = conf['languages']
 		self.me = conf['me']
 		modes = conf['modes']
@@ -423,7 +494,7 @@ class AI:
 		# YAML to OpenAI message format
 		for m in modes:
 			# TODO move languages and user info into user data 
-			params = [" or ".join(self.languages)]
+			params = [", ".join(self.languages)]
 			
 			messages = modes[m]['messages']
 			modes[m]['messages'] = [{'role': 'system', 'content': messages['system'].format(*params)}]
@@ -472,8 +543,8 @@ class Recorder:
 class Synthesizer:
 	def __init__(self): 
 		self.voices = {
-			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 200}, #220
-			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 210}} #240, magi:190
+			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 190}, #220
+			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 200}} #240, magi:190
 
 		self.process = None
 
@@ -487,9 +558,9 @@ class Synthesizer:
 			voice = self.voices[lang]
 
 		text = self.escape4shell(self.simply2read(text))
-
-		#os.system(f'say -v "{text_voice}"  "{text}"')
 		self.process = subprocess.Popen(["say", "-v", voice['name'], text, "-r", str(voice['speed'])])
+		#os.system(f'say -v "{text_voice}"  "{text}"')
+
 		return self.process
 
 	def stop(self):
@@ -497,12 +568,13 @@ class Synthesizer:
 			self.process.kill()
 			self.process = None
 
-	def escape4shell(self, text):
-		text = text.replace("`", "'")
-		text = text.replace('"', "").replace("'", "")
-		text = text.replace('$', "\\$") 
-		text = text.replace('!', "\\!") 
-		if text[0]=="-": # say considers starting - as a parameter
+	def escape4shell(self, text): 
+		""" # Popen does not seem to escape characters that disturb shell command: `"'$! anymore
+		text = shlex.quote(text) 
+		if text[-1]=="'":
+			text = text[:-1]"""
+		# shell considers starting '-' as a parameter
+		if text[0]=="-": 
 			text = "\\"+text
 		return text
 		

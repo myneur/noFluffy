@@ -2,4 +2,5 @@
 __pycache__/
 *.key
 *.log
-testdata/*.report.yml
+testdata/*.report.yaml
+logs/*.yaml
