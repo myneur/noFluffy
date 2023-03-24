@@ -9,42 +9,93 @@ from chat import AI
 
 
 class TestTranslate(unittest.TestCase):
+
 	def setUp(self):
-		with open('testdata/classified.tests.yaml', 'r') as file:
-			self.tests = yaml.safe_load(file)
-		with open("testdata/classified.report.yaml", "w") as file:
-			self.output = file
+		with open('testdata/classified.cases.yaml', 'r') as file:
+			self.cases = yaml.safe_load(file)
+		
+		self.classifier = AI()
+		self.delay = 1
+
 		self.passed = 0
 		self.failed = 0
-		self.price = 0
-		self.tokens = 0
-		self.report = {'ok': [], 'ko':[]}
-		self.classifier = AI()
-
-	def test_classifier_assertions(self):
-		for test in self.tests:	
-			
-			t = time.time()
-			
-			reply = self.classifier.chat(test['q'], '_classifier')
-			result = reply['choices'][0]['message']['content']
-			
-			t = time.time()-t
-
-			
-			if self.assertEqual(result, test['ok'], 'in: '+test['q'][:20]+'…'):
-				test['ko'] = result
-				tes['seconds'] = round(t, 1)
-				report['ko'].append(test)
-				
-			else:
-				test.pop['ko']
-				report['ok'].append(test)
-
-			return # TESTING TEST FIRST!!
 		
-		yaml.dump(report, output)
+		self.prompts = 0
+
+		self.totalPrice = 0
+		self.totalTime = 0
+		
+		self.report = {'ok': [], 'ko':[]}
+		
+		
+
+	def test_classifier_assertions(self):		
+		for case in self.cases:	
+			t = time.time()
+
+			response = self.classifier.chat(case['q'], '_classifier')
+
+			t = time.time()-t
+			
+
+			result = response['choices'][0]['message']['content']
+			
+			price = (0.002/response['usage']['prompt_tokens'] + 0.002/response['usage']['prompt_tokens'])/100 # TODO variants for GPT4
+			self.totalPrice += price
+
+			price = round(price, 4)
+			start = case['q'][:20]+'…'
+			
+			self.prompts += 1
+
+			t = round(t, 1)
+			self.totalTime += t
+
+			with self.subTest(item=case):
+				
+				try:
+					self.assertEqual(result, case['ok'], f'${price}/{t}s: {start}')
+					self.totalTime += t
+					case.pop['ko']
+					case['price'] = price
+					self.report['ok'].append(case.copy())
+					self.passed += 1
+					print(f"""OK: "{start}" """)
+				except AssertionError:
+					case['ko'] = result
+					case['seconds'] = t
+					case['price'] = price
+					self.report['ko'].append(case.copy())
+					self.failed += 1
+					#raise
+					print(f"""'{case['ok']}' != '{result}' in "{start}" """)
+
+			time.sleep(self.delay)
+
+
+		promptTime = round(self.totalTime, 1)
+		print(f"""
+Failed cases: {self.failed}
+Passed cases: {self.passed}
+Prompts cases: {self.prompts}
+Total time: {promptTime} s
+Total price: ${self.totalPrice}
+""")
+
+		self.report['price'] = self.totalPrice
+		with open("testdata/classified.report.yaml", "w") as file:
+			yaml.dump(self.report, file)
+
+
+"""if __name__ == '__main__':
+	unittest.main()"""
 
 
 if __name__ == '__main__':
 	unittest.main()
+	"""suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestTranslate)
+	result = unittest.TestResult()
+	suite.run(result)
+	print("Tests Run: ", result.testsRun)
+	print("Tests Failed: ", len(result.failures))
+	print("Tests Passed: ", result.testsRun - len(result.failures))"""
