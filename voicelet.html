@@ -3,49 +3,104 @@
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
 	<style>
+		#listen, select {
+			font-size: 24pt;
+		}
+		#text-area {
+			font-size: 16pt;
+		}
+		#clear, #share  {
+			font-size: 18pt;
+		}
+
+		@media screen and (max-width: 600px) {
+			#clear, #share  {
+				font-size: 12pt;
+			}
+			#text-area {
+				font-size: 14pt;
+			}
+		}
+		
 		body {
 			display: flex;
 			flex-direction: column;
 			height: 100vh;
 			margin: 0;
 		}
-		#slider, #drop-down, #text-area, #record-button {
-			margin: 0px;
+		#slider, #drop-down, #text-area, #listen, #clear, #share {
+			margin: 5px;
+			border: none;
 			flex-grow: 0;
 			flex-shrink: 0;
+
 		}
-		#slider     { flex-basis: 10%; }
-		#drop-down  { flex-basis: 10%; }
-		#text-area  { flex-basis: 40%; }
-		#clear-conversation { flex-basis: 10%; }
-		#record-button { flex-basis: 20%; }
+		#slider { flex-basis: 5%;  }
+		
+		
+		#drop-down  { flex-basis: 10%; color: #595959;}
+		#text-area  { flex-basis: 50%; }
+		
+		#buttons-container { 
+			display: flex;
+			flex-direction: row; 
+			justify-content: center; 
+			align-items: center; 
+			flex-wrap: wrap; 
+
+			display: flex;
+			flex-direction: row;
+		}
+
+		#clear, #share { 
+			flex-basis: 15%; 
+			min-height: 20pt;
+			border-radius: 5px;
+			background-color: #F2F2F2;
+		}
+		#listen { 
+			flex-basis: 60%; 
+			min-height: 40pt;
+			border-radius: 100px;
+			background-color: #7295DB;
+			color: #fff;
+
+		}
 	</style>
 </head>
 <body>
 	<input type="range" id="slider" />
 	<select id="drop-down"></select>
 	<textarea id="text-area"></textarea>
-	<button id="clear-conversation">Clear</button>
-	<button id="record-button">Listen</button>
+	<div id="buttons-container">
+			<button id="clear">Clear</button>
+			<button id="listen">Listen</button>
+			<button id="share">Share</button>
+	</div>
 	
 	<script>
 		const slider = document.getElementById("slider");
 		const dropDown = document.getElementById("drop-down");
 		//dropDown.addEventListener('change', speakMessage);
 		const textArea = document.getElementById("text-area");
-		const recordButton = document.getElementById("record-button");
-		const clearConversation = document.getElementById("clear-conversation");
-		let isRecording = false;
-		let mediaRecorder;
-		let recordedChunks = [];
+		const recordButton = document.getElementById("listen");
+		const clearConversation = document.getElementById("clear");
+		var isRecording = false;
+		var mediaRecorder;
+		var recordedChunks = [];
 
-		let messages = [];
-
-		let pipelines = {'Assistant': chat, 'Repeater': speak};
-		let tokens = 0;
-
-		clear();
-
+		var messages = [];
+		var tokens = 0;
+		var modes = {
+			'Concise factual': {pipeline: chat, params: {'temperature': 0}, messages: {
+				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies."}},
+			'Concise factual GPT4': {pipeline: chat, params: {'model': 'gpt-4', 'temperature': 0}, messages: {
+				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies."}},
+			'Pohádkobot': {pipeline: chat, params: {'temperature': 1}, messages: {
+				system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
+			'Repeat what I say': {pipeline: speak}
+		};
+		
 		function log(text){
 			textArea.value += text + " ";
 		}
@@ -68,13 +123,14 @@
 			});
 		}
 
-		function populateDropDown() {
-			for(label in pipelines){
+		function setupUI() {
+			for(role in modes){
 				let option = document.createElement("option");
-				option.textContent = label;
-				option.value = label;
+				option.textContent = role;
+				option.value = role;
 				dropDown.appendChild(option);
 			}
+			clear();
 		}
 
 		try { window.speechSynthesis.addEventListener("voiceschanged", getBestVoices) } catch {}
@@ -84,8 +140,8 @@
 		else
 			getBestVoices();
 
-
-		populateDropDown();
+		setupUI();
+		
 
 		function getVoiceByLang(str) {
 			const substring = str.substring(0, 100);
@@ -122,18 +178,22 @@
 
 		function clear(){
 			let system = "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.";
-			messages = [{ role: "system", content: system }];
+			try {
+				log(dropDown.value)
+				messages = [{ role: 'system', content: modes[dropDown.value].messages.system}];
+			} catch { messages = []; }
+
 			textArea.value = "";
 			clearConversation.textContent = "";
 			tokens = 0;
 		}
 
 		clearConversation.addEventListener("click", clear);
-
+		dropDown.addEventListener("change", clear);
 	  
 		async function startRecording() {
 			isRecording = true;
-			recordButton.textContent = "Stop listening and answer!";
+			recordButton.textContent = "STOP listening and Answer!";
 
 			const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			mediaRecorder = new MediaRecorder(mediaStream);
@@ -164,14 +224,13 @@
 					
 					if(query.hasOwnProperty('text')){	
 						textArea.value = query.text;
-						pipelines[dropDown.value](query.text)
+						modes[dropDown.value].pipeline(query.text)
 						//pipeline(query.text);
 					}
 					if(query.hasOwnProperty('error')){
 						log("Error: "+query['error']['message']);
 						speak(query['error']['message']);
 					}
-					
 				});
 			} catch (e) {
 				log(e);
@@ -200,18 +259,21 @@
 
 
 		async function chat(question){
-			messages.push({ role: "user", content: query.text })
+			messages.push({ role: 'user', content: query.text });
 			recordButton.textContent = "…thinking";
+
+			let params = modes[dropDown.value].params;
+			if(!('model' in params))
+				params.model = 'gpt-3.5-turbo';
+			params.messages = messages;
+
 			const response = await fetch("https://api.openai.com/v1/chat/completions", {
-				method: "POST",
+				method: 'POST',
 				headers: {
-					"Content-Type": "application/json",
-					"Authorization": "Bearer "+key
+					'Content-Type': 'application/json',
+					'Authorization': 'Bearer '+key
 				},
-				body: JSON.stringify({
-					model: "gpt-3.5-turbo",
-					messages: messages
-				})
+				body: JSON.stringify(params)
 			});
 
 			const reply = await response.json();
@@ -222,7 +284,7 @@
 				tokens += reply['usage']['total_tokens'];
 				clearConversation.textContent = "Clear " + tokens + " words";
 
-				log("Re: "+ message['content']);
+				log(" >>> " + message['content']);
 			} catch (e) {
 				log(e);
 			}
