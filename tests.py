@@ -29,7 +29,13 @@ class TestTranslate(unittest.TestCase):
 		
 		
 
-	def test_classifier_assertions(self):		
+	def test_classifier_assertions(self):	
+		try:
+			print("Starting testing of {} cases".format(len(self.cases)))
+		except:
+			print("No cases to test")
+			return
+
 		for case in self.cases:	
 			t = time.time()
 
@@ -44,7 +50,7 @@ class TestTranslate(unittest.TestCase):
 			self.totalPrice += price
 
 			price = round(price, 4)
-			start = case['q'][:20]+'…'
+			start = case['q'][:40]+'…'
 			
 			self.prompts += 1
 
@@ -56,11 +62,12 @@ class TestTranslate(unittest.TestCase):
 				try:
 					self.assertEqual(result, case['ok'], f'${price}/{t}s: {start}')
 					self.totalTime += t
-					case.pop['ko']
+					if 'ko' in case:
+						del case['ko']
 					case['price'] = price
 					self.report['ok'].append(case.copy())
 					self.passed += 1
-					print(f"""OK: "{start}" """)
+					print(f"""✅ {result}: "{start}" """)
 				except AssertionError:
 					case['ko'] = result
 					case['seconds'] = t
@@ -68,7 +75,7 @@ class TestTranslate(unittest.TestCase):
 					self.report['ko'].append(case.copy())
 					self.failed += 1
 					#raise
-					print(f"""'{case['ok']}' != '{result}' in "{start}" """)
+					print(f"""❌ '{result}' != '{case['ok']}': "{start}" """)
 
 			time.sleep(self.delay)
 
@@ -78,7 +85,7 @@ class TestTranslate(unittest.TestCase):
 Failed cases: {self.failed}
 Passed cases: {self.passed}
 Prompts cases: {self.prompts}
-Total time: {promptTime} s
+Total response time: {promptTime} s
 Total price: ${self.totalPrice}
 """)
 

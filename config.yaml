@@ -145,26 +145,44 @@ modes: # default is 1st, underscored are hidden used by system
                 If text does not start with a request for any of these actions, reply with none.
 
                 Examples:
-                Text:What's in my inbox?
+                Text: What's in my inbox?
                 Action: inbox
 
-                Text:Take a note to pick up groceries
-                Action:todos
+                Text: Take a note to pick up groceries
+                Action: todos
 
-                Text:Send it to me by an email.
-                Action:communicate
+                Text: Send it to me by an email.
+                Action: communicate
 
-                Text:What are best restaurants around?
-                Action:maps
+                Text: What are best restaurants around?
+                Action: maps
 
-                Text:Připrav text, který bude začínat oslovením čau a následující větou.
-                Action:none
+                Text: Připrav text, který bude začínat oslovením čau a následující větou.
+                Action: none
 
-                Text:be my assistant.
-                Action:command
+                Text: be my assistant.
+                Action: command
 
-                Text:be a translator.
-                Action:command
+                Text: be a translator.
+                Action: command
+
+                Text: {}
+                Action: 
+        model_params:
+            temperature: 0
+            max_tokens: 512
+            stop: "###"
+    _commander:
+        goal: find out if an inquiry contains any request for an action and identify it
+        version: 0.3
+        messages:
+            system: You are a classifier that detects whether the given inquiry starts with a request to perform a direct action.
+            user: |
+                Detect whether the following inquiry starts with a direct request to do something by a chosen service or means.
+
+                Example:
+                Request for action : create, read, update, delete, transform, get, draft, find, write, how long is or prepare
+                Service or means: email, meeting, calendar, inbox, note, todo, maps, directions, commute, internet, call
 
                 Text:{}
         model_params:
@@ -175,25 +193,25 @@ models:
     voice:
         whisper-1:
             limit: 25000000
-            pricePerMin: $0.006
+            pricePerMin: 0.006
     chat:
         gpt-3.5-turbo: #chat
             limit: 4090
-            pricePer1000: $0.002
+            pricePer1000: 0.002
         gpt-4:
             limit: 8192
             pricePer1000: 
-                prompt: $0.03
-                completion: $0.06
+                prompt: 0.03
+                completion: 0.06
     _gpt-4-32k:
             limit: 32768
             pricePer1000:
-                prompt: $0.06
-                completion: $0.12
+                prompt: 0.06
+                completion: 0.12
     completion:
         text-davinci-003: 
             limit: 2049
-            pricePer1000: $0.02
+            pricePer1000: 0.02
 languages:
     - Czech
     - English

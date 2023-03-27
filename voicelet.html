@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+	<style>
+		body {
+			display: flex;
+			flex-direction: column;
+			height: 100vh;
+			margin: 0;
+		}
+		#slider, #drop-down, #text-area, #record-button {
+			margin: 0px;
+			flex-grow: 0;
+			flex-shrink: 0;
+		}
+		#slider     { flex-basis: 10%; }
+		#drop-down  { flex-basis: 10%; }
+		#text-area  { flex-basis: 40%; }
+		#clear-conversation { flex-basis: 10%; }
+		#record-button { flex-basis: 20%; }
+	</style>
+</head>
+<body>
+	<input type="range" id="slider" />
+	<select id="drop-down"></select>
+	<textarea id="text-area"></textarea>
+	<button id="clear-conversation">Clear</button>
+	<button id="record-button">Listen</button>
+	
+	<script>
+		const slider = document.getElementById("slider");
+		const dropDown = document.getElementById("drop-down");
+		//dropDown.addEventListener('change', speakMessage);
+		const textArea = document.getElementById("text-area");
+		const recordButton = document.getElementById("record-button");
+		const clearConversation = document.getElementById("clear-conversation");
+		let isRecording = false;
+		let mediaRecorder;
+		let recordedChunks = [];
+
+		let messages = [];
+
+		let pipelines = {'Assistant': chat, 'Repeater': speak};
+		let tokens = 0;
+
+		clear();
+
+		function log(text){
+			textArea.value += text + " ";
+		}
+		
+		const czechChars = /[ěščřžýáíéúůďťň]/i; 
+		
+		let voices = {}
+
+		let key = new URLSearchParams(window.location.search).get('key');
+
+		function getBestVoices(){
+			window.speechSynthesis.getVoices().forEach(voice => {
+				let lang = voice.lang.substring(0,2);
+				if(! (lang in voices)){
+					voices[lang] = voice;
+				} else
+					if(voice.name.toLowerCase().includes('premium')){
+						voices[lang] = voice;
+					}
+			});
+		}
+
+		function populateDropDown() {
+			for(label in pipelines){
+				let option = document.createElement("option");
+				option.textContent = label;
+				option.value = label;
+				dropDown.appendChild(option);
+			}
+		}
+
+		try { window.speechSynthesis.addEventListener("voiceschanged", getBestVoices) } catch {}
+
+		if (typeof window.speechSynthesis === 'undefined') 
+			log("Your phone has no voices:(");
+		else
+			getBestVoices();
+
+
+		populateDropDown();
+
+		function getVoiceByLang(str) {
+			const substring = str.substring(0, 100);
+			if (czechChars.test(substring))
+				return voices['cs'];
+			else
+				return voices['en'];
+		}
+
+		function speak(text){
+			if ('speechSynthesis' in window) {
+
+				let rate = 0.7 + 0.6*(slider.value/100);
+				const msg = new SpeechSynthesisUtterance();
+				//msg.voice = speechSynthesis.getVoices().find(voice => voice.name === dropDown.value);
+				msg.voice = getVoiceByLang(text);
+				msg.text = text;
+				msg.rate = rate;
+				window.speechSynthesis.speak(msg);
+			  } else {
+				console.log('Speech synthesis not supported');
+			  }
+			  recordButton.textContent = "Listen";
+		}
+
+
+		recordButton.addEventListener("click", () => {
+			if (!isRecording) {
+				startRecording();
+			} else {
+				stopRecording();
+			}
+		});
+
+		function clear(){
+			let system = "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.";
+			messages = [{ role: "system", content: system }];
+			textArea.value = "";
+			clearConversation.textContent = "";
+			tokens = 0;
+		}
+
+		clearConversation.addEventListener("click", clear);
+
+	  
+		async function startRecording() {
+			isRecording = true;
+			recordButton.textContent = "Stop listening and answer!";
+
+			const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			mediaRecorder = new MediaRecorder(mediaStream);
+			recordedChunks = [];
+			mediaRecorder.start();
+
+			mediaRecorder.addEventListener('dataavailable', event => {
+				if (event.data.size > 0) {
+					recordedChunks.push(event.data);
+				}
+			});
+		}
+
+		async function stopRecording() {
+			isRecording = false;
+			recordButton.textContent = "…recognizing";
+			mediaRecorder.stop();
+
+			try {  
+				mediaRecorder.addEventListener("stop", async () => {
+					let type = "audio/mpeg"; //audio/mpeg, audio/mp4, audio/x-m4a, not audio/webm
+					let extension = ".mp3"
+					const audioBlob = new Blob(recordedChunks, {type: type}); 
+					const audioUrl = URL.createObjectURL(audioBlob);
+					const audioFile = new File([audioBlob], "recordedAudio"+extension, {type: type});
+
+					query = await transcribe(audioFile);
+					
+					if(query.hasOwnProperty('text')){	
+						textArea.value = query.text;
+						pipelines[dropDown.value](query.text)
+						//pipeline(query.text);
+					}
+					if(query.hasOwnProperty('error')){
+						log("Error: "+query['error']['message']);
+						speak(query['error']['message']);
+					}
+					
+				});
+			} catch (e) {
+				log(e);
+			}
+		}
+
+		async function transcribe(file){
+			formData = new FormData();
+			formData.append('file', file);
+			formData.append('model', 'whisper-1')
+			try {
+				const transcription = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+					method: 'POST',
+					headers: {
+						'Authorization': "Bearer "+key //,"Content-Type": "multipart/form-data"
+					},
+					body: formData //,model: "whisper-1"
+				});
+				const query = await transcription.json();
+				return (query);
+			} catch(e){
+				log(e);
+				return {'text': "Error in voice recognition"}
+			}
+		}
+
+
+		async function chat(question){
+			messages.push({ role: "user", content: query.text })
+			recordButton.textContent = "…thinking";
+			const response = await fetch("https://api.openai.com/v1/chat/completions", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Authorization": "Bearer "+key
+				},
+				body: JSON.stringify({
+					model: "gpt-3.5-turbo",
+					messages: messages
+				})
+			});
+
+			const reply = await response.json();
+
+			try {
+				message = reply['choices'][0]['message']
+				messages.push(message);
+				tokens += reply['usage']['total_tokens'];
+				clearConversation.textContent = "Clear " + tokens + " words";
+
+				log("Re: "+ message['content']);
+			} catch (e) {
+				log(e);
+			}
+			
+			//textArea.value += message['content'];
+			speak(message['content']);
+			//textArea.value +=  usage['total_tokens']
+
+		}
+
+	</script>
+</body>
+</html>

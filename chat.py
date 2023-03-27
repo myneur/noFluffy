@@ -331,6 +331,7 @@ class AI:
 		self.loadConfig()
 		self.start()
 
+		#openai.api_key = os.environ.get('OPENAI_KEY')
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
 
