@@ -3,7 +3,7 @@ modes: # default is 1st, underscored are hidden used by system
         goal: Answer general questions with easy to read replies
         version: 0.2
         messages:
-            system: You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.
+            system: You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice.
             user: "{}"
             remember: 6
     assistant:
@@ -21,7 +21,7 @@ modes: # default is 1st, underscored are hidden used by system
             user: "{}"
             remember: 6
         model_params:
-            temperature: 1
+            temperature: 2
     translator:
         goal: Efficient interpreter who translates from one language to another without comments.
         version: 0.2
@@ -123,6 +123,8 @@ modes: # default is 1st, underscored are hidden used by system
         messages:
             system: Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích.
             user: "{}"
+        model_params:
+            temperature: 2
     _classifier:
         goal: find out if text contains request for an action and identify it
         version: 0.2

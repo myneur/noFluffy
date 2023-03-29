@@ -3,15 +3,14 @@
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
 	<style>
-		#listen, select {
-			font-size: 24pt;
-		}
-		#text-area {
-			font-size: 16pt;
-		}
-		#clear, #share  {
-			font-size: 18pt;
-		}
+		#listen, select {	
+			font-size: 24pt;}
+		#text-area {		
+			font-size: 16pt;}
+		#speed { 			
+			font-size: 18pt}
+		#clear, #share  {	
+			font-size: 18pt;}
 
 		@media screen and (max-width: 600px) {
 			#clear, #share  {
@@ -28,25 +27,28 @@
 			height: 100vh;
 			margin: 0;
 		}
-		#slider, #drop-down, #text-area, #listen, #clear, #share {
+		#speed, #drop-down, #text-area, #listen, #clear, #share {
 			margin: 5px;
 			border: none;
 			flex-grow: 0;
 			flex-shrink: 0;
 
 		}
-		#slider { flex-basis: 5%;  }
+		#speed { 
+			flex-basis: 30%; color: #595959;}
 		
+		#drop-down { 
+			flex-basis: 70%; color: #595959;}
 		
-		#drop-down  { flex-basis: 10%; color: #595959;}
-		#text-area  { flex-basis: 50%; }
+		#text-area  { 
+			flex-basis: 60%; }
 		
-		#buttons-container { 
+		#buttons-container, #buttons-container { 
 			display: flex;
 			flex-direction: row; 
 			justify-content: center; 
 			align-items: center; 
-			flex-wrap: wrap; 
+			flex-wrap: nowrap;
 
 			display: flex;
 			flex-direction: row;
@@ -69,47 +71,154 @@
 	</style>
 </head>
 <body>
-	<input type="range" id="slider" />
-	<select id="drop-down"></select>
+	<div id="dropdown-container">
+		<select id="drop-down"></select>
+		<select id="speed">
+			<option value=1>1×</option>
+			<option value=1.5>1.5×</option>
+			<option value=2>2×</option>
+			<option value=2.5>2.5×</option>
+			<option value=3>3×</option>
+			<option value=0.8>0.8×</option>
+		</select>
+	</div>
 	<textarea id="text-area"></textarea>
 	<div id="buttons-container">
-			<button id="clear">Clear</button>
-			<button id="listen">Listen</button>
-			<button id="share">Share</button>
+		<button id="clear">Clear</button>
+		<button id="listen">Listen</button>
+		<button id="share">Share</button>
 	</div>
 	
 	<script>
-		const slider = document.getElementById("slider");
+		const speed = document.getElementById("speed");
 		const dropDown = document.getElementById("drop-down");
 		//dropDown.addEventListener('change', speakMessage);
 		const textArea = document.getElementById("text-area");
 		const recordButton = document.getElementById("listen");
 		const clearConversation = document.getElementById("clear");
+		const shareButton = document.getElementById("share");
 		var isRecording = false;
 		var mediaRecorder;
 		var recordedChunks = [];
 
+		let key = new URLSearchParams(window.location.search).get('key');
+
+
 		var messages = [];
 		var tokens = 0;
 		var modes = {
-			'Concise factual': {pipeline: chat, params: {'temperature': 0}, messages: {
-				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies."}},
-			'Concise factual GPT4': {pipeline: chat, params: {'model': 'gpt-4', 'temperature': 0}, messages: {
-				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies."}},
-			'Pohádkobot': {pipeline: chat, params: {'temperature': 1}, messages: {
+			'Concise factual': {pipeline: chat, params: {}, messages: {
+				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
+			'Concise factual GPT4': {pipeline: chat, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
+				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
+			'Pohádkobot': {pipeline: chat, params: {'temperature': 2}, messages: {
 				system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
 			'Repeat what I say': {pipeline: speak}
 		};
+		var page = 0;
+				
 		
+
+		try { window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) } catch {}
+
+		if (typeof window.speechSynthesis === 'undefined') 
+			log("Your phone has no voices:(");
+		else
+			getBestVoices();
+
+		setupUI();
+
+
+		function setupUI() {
+			for(role in modes){
+				let option = document.createElement("option");
+				option.textContent = role;
+				option.value = role;
+				dropDown.appendChild(option);
+			}
+			clear();
+			if(!navigator.share){
+				shareButton.textContent = "";
+				shareButton.style.backgroundColor = 'none';
+			}
+		}
+
+		document.addEventListener('touchstart', handleTouchStart, false);        
+		document.addEventListener('touchend', handleTouchEnd, false);
+
+		var touche = [0, 0];                                                        
+		function handleTouchStart(evt) {                                         
+			touche = [evt.touches[0].clientX, evt.touches[0].clientY];
+		}
+
+		function handleTouchEnd(evt) {
+			var diff = [evt.changedTouches[0].clientX - touche[0], evt.changedTouches[0].clientY - touche[1]];
+
+			if(diff[0]>100)
+				flip(-1);
+			else if(diff[0]<-100)
+				flip(1);
+		}
+
+		function share(){
+			if (navigator.share)
+				navigator.share({text: textArea.value})
+					.then(() => console.log('Successful share'))
+					.catch((error) => console.log('Error sharing:', error));
+		}
+
+		function flip(p) {
+			let systemMessages =( messages.length>0 && 'role' in messages[0] && messages[0]['role'] == 'system') ? 1 : 0;
+			if(!page)
+				page = messages.length-1;
+			page += p;
+			if(page < systemMessages)
+				page = systemMessages; 
+			if(page > messages.length)
+				page = messages.length-1;
+			if(page < messages.length && page >= systemMessages)
+				show(messages[page]['content']);
+		}
+
+		var pressTimer;
+		shareButton.addEventListener('touchstart', function(event) {
+			pressTimer = performance.now();
+			event.preventDefault();
+		}, {passive: false});
+		shareButton.addEventListener('touchend', function(event) {
+			if(performance.now() - pressTimer > 2000){
+				//if( event.target == shareButton )
+				try { (new Audio(URL.createObjectURL(recordedAudio)).play()) } catch {}
+			}
+			event.preventDefault();
+		}, {passive: false});
+
 		function log(text){
 			textArea.value += text + " ";
 		}
-		
-		const czechChars = /[ěščřžýáíéúůďťň]/i; 
-		
-		let voices = {}
+		function show(text){
+			textArea.value = text ;
+		}
 
-		let key = new URLSearchParams(window.location.search).get('key');
+		recordButton.addEventListener("click", () => {
+			if (isRecording) 
+				stopRecording();
+			else
+				startRecording();
+		});
+
+		clearConversation.addEventListener("click", clear);
+		dropDown.addEventListener("change", clear);
+		shareButton.addEventListener("click", share);
+		speed.addEventListener("change", testSpeed);
+
+		
+
+		/// Synthesizer TODO: encapsulate
+
+
+		const czechChars = /[ěščřžýáíéúůďťň]/i; 
+		let voices = {}
 
 		function getBestVoices(){
 			window.speechSynthesis.getVoices().forEach(voice => {
@@ -123,26 +232,6 @@
 			});
 		}
 
-		function setupUI() {
-			for(role in modes){
-				let option = document.createElement("option");
-				option.textContent = role;
-				option.value = role;
-				dropDown.appendChild(option);
-			}
-			clear();
-		}
-
-		try { window.speechSynthesis.addEventListener("voiceschanged", getBestVoices) } catch {}
-
-		if (typeof window.speechSynthesis === 'undefined') 
-			log("Your phone has no voices:(");
-		else
-			getBestVoices();
-
-		setupUI();
-		
-
 		function getVoiceByLang(str) {
 			const substring = str.substring(0, 100);
 			if (czechChars.test(substring))
@@ -152,11 +241,11 @@
 		}
 
 		function speak(text){
+			text = simplify2read(text);
 			if ('speechSynthesis' in window) {
-
-				let rate = 0.7 + 0.6*(slider.value/100);
+				let rate = speed.value;
 				const msg = new SpeechSynthesisUtterance();
-				//msg.voice = speechSynthesis.getVoices().find(voice => voice.name === dropDown.value);
+				//msg.onend = () => {console.log('Speech ended.');};
 				msg.voice = getVoiceByLang(text);
 				msg.text = text;
 				msg.rate = rate;
@@ -167,29 +256,26 @@
 			  recordButton.textContent = "Listen";
 		}
 
-
-		recordButton.addEventListener("click", () => {
-			if (!isRecording) {
-				startRecording();
-			} else {
-				stopRecording();
-			}
-		});
-
-		function clear(){
-			let system = "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.";
-			try {
-				log(dropDown.value)
-				messages = [{ role: 'system', content: modes[dropDown.value].messages.system}];
-			} catch { messages = []; }
-
-			textArea.value = "";
-			clearConversation.textContent = "";
-			tokens = 0;
+		function testSpeed(){
+			let sel = speed.options[speed.selectedIndex].innerHTML;
+			speak("Rychlost čtení je nastavena na " + sel);
 		}
 
-		clearConversation.addEventListener("click", clear);
-		dropDown.addEventListener("change", clear);
+		function simplify2read(text){
+			// remove code blocks
+			let processed = text.replace(/(```.*?```)/gs, "Example code.\n");
+			processed = processed.replace('`', "'"); // it reads it as 'back quote'
+
+			// decrease wokiness
+			processed = processed.replace(/\b(\w{3,})\/á\b/g, '$1');
+
+			return processed
+		}
+
+
+
+		/// Recorder: TODO encapsulate
+		
 	  
 		async function startRecording() {
 			isRecording = true;
@@ -201,12 +287,12 @@
 			mediaRecorder.start();
 
 			mediaRecorder.addEventListener('dataavailable', event => {
-				if (event.data.size > 0) {
+				if (event.data.size > 0)
 					recordedChunks.push(event.data);
-				}
 			});
 		}
 
+		var recordedAudio;
 		async function stopRecording() {
 			isRecording = false;
 			recordButton.textContent = "…recognizing";
@@ -217,25 +303,30 @@
 					let type = "audio/mpeg"; //audio/mpeg, audio/mp4, audio/x-m4a, not audio/webm
 					let extension = ".mp3"
 					const audioBlob = new Blob(recordedChunks, {type: type}); 
-					const audioUrl = URL.createObjectURL(audioBlob);
-					const audioFile = new File([audioBlob], "recordedAudio"+extension, {type: type});
+					//const audioUrl = URL.createObjectURL(audioBlob);
+					recordedAudio = new File([audioBlob], "recordedAudio"+extension, {type: type});
 
-					query = await transcribe(audioFile);
+					query = await transcribe(recordedAudio);
 					
 					if(query.hasOwnProperty('text')){	
-						textArea.value = query.text;
+						show(query.text);
+						page = messages.length-1;
 						modes[dropDown.value].pipeline(query.text)
-						//pipeline(query.text);
 					}
 					if(query.hasOwnProperty('error')){
 						log("Error: "+query['error']['message']);
 						speak(query['error']['message']);
 					}
 				});
-			} catch (e) {
-				log(e);
-			}
+			} catch (e) {log(e)}
 		}
+
+
+
+
+
+		/// AI: TODO encapsualte
+
 
 		async function transcribe(file){
 			formData = new FormData();
@@ -256,7 +347,6 @@
 				return {'text': "Error in voice recognition"}
 			}
 		}
-
 
 		async function chat(question){
 			messages.push({ role: 'user', content: query.text });
@@ -281,19 +371,27 @@
 			try {
 				message = reply['choices'][0]['message']
 				messages.push(message);
-				tokens += reply['usage']['total_tokens'];
+				tokens = reply['usage']['total_tokens'];
 				clearConversation.textContent = "Clear " + tokens + " words";
-
-				log(" >>> " + message['content']);
-			} catch (e) {
-				log(e);
-			}
-			
-			//textArea.value += message['content'];
+				show(message['content']);
+				page = messages.length-1;
+			} 
+			catch (e) {log(e);}
 			speak(message['content']);
-			//textArea.value +=  usage['total_tokens']
-
 		}
+
+		function clear(){
+			let system = "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.";
+			try {
+				log(dropDown.value)
+				messages = [{ role: 'system', content: modes[dropDown.value].messages.system}];
+			} catch { messages = []; }
+
+			textArea.value = "";
+			clearConversation.textContent = "";
+			tokens = 0;
+		}
+
 
 	</script>
 </body>
