@@ -38,7 +38,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Text: Translate to French. Nice to meet you. 
                 Translation: Le français est une très belle langue.
 
-                Translate following text.
+                Translate the following text.
 
                 Text:{}
                 Translation:
@@ -124,7 +124,7 @@ modes: # default is 1st, underscored are hidden used by system
             system: Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích.
             user: "{}"
         model_params:
-            temperature: 2
+            temperature: 1.5
     _classifier:
         goal: find out if text contains request for an action and identify it
         version: 0.2

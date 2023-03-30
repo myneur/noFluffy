@@ -293,8 +293,8 @@ class Chat:
 					self.say.say(mess)
 				self.logger.log('- error: '+mess+ '\n')
 
-			if 'traceback' in response:
-				print(response['traceback'])
+			#if 'traceback' in response:
+			#	print(response['traceback'])
 			
 			return None
 		
@@ -419,6 +419,33 @@ class AI:
 			self.tokensUsed = response['usage']['total_tokens']
 
 		return response
+
+	def messageFromTemplate(self, role, params): # TODO yet to be finished by refactoring loadConf
+		try:
+			template = AI.modes[self.mode]['messages']
+			if params:
+				params = template['system'].format(*params)
+			else:
+				params = template;
+		except:
+			pass
+		
+		return {'role': role, 'content': text };
+
+	def keepLastMessages(self):
+		return # TODO yet to be finished by refactoring loadConf
+		try:
+			template = AI.modes[self.mode]['messages'];
+			keep = template['remember']
+			messages = self.messages
+			if keep < len(messages):
+				messages = messages[len(messages)-keep:]
+				if 'system' in template:
+					messages.insert(0, messageFromTemplate('system', [", ".join(self.languages)] ))
+		except:
+			pass
+		print (messages) 
+		# self.messages = messages
 
 	def clearMessages(self, keep=0):
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor

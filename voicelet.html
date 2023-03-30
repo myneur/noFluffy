@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+	<meta name=viewport content="width=device-width, initial-scale=1, maximum-scale=1">
+	<meta name=apple-mobile-web-app-capable content=yes>
+	<meta name=apple-mobile-web-app-status-bar-style content=black>
+	
 	<style>
 		#listen, select {	
 			font-size: 24pt;}
-		#text-area {		
+		#content {		
 			font-size: 16pt;}
 		#speed { 			
 			font-size: 18pt}
@@ -16,7 +19,7 @@
 			#clear, #share  {
 				font-size: 12pt;
 			}
-			#text-area {
+			#content {
 				font-size: 14pt;
 			}
 		}
@@ -26,24 +29,14 @@
 			flex-direction: column;
 			height: 100vh;
 			margin: 0;
+			background-color: #260101;
+			color: #eee;
 		}
-		#speed, #drop-down, #text-area, #listen, #clear, #share {
-			margin: 5px;
-			border: none;
-			flex-grow: 0;
-			flex-shrink: 0;
+		select {
+			background-color: #260101;
+		}
 
-		}
-		#speed { 
-			flex-basis: 30%; color: #595959;}
-		
-		#drop-down { 
-			flex-basis: 70%; color: #595959;}
-		
-		#text-area  { 
-			flex-basis: 60%; }
-		
-		#buttons-container, #buttons-container { 
+		#buttons-container, #dropdown-container { 
 			display: flex;
 			flex-direction: row; 
 			justify-content: center; 
@@ -53,21 +46,57 @@
 			display: flex;
 			flex-direction: row;
 		}
+		#dropdown-container { 
+			justify-content: left; 
+		}
+
+		#speed, #drop-down, #content, #listen, #clear, #share {
+			margin: 5px;
+			border: none;
+			flex-grow: 0;
+			flex-shrink: 0;
+
+		}		
+		#drop-down { 
+			flex-basis: 70%; 
+			color: #fff;
+			max-width: 70%;
+		}
+		
+		#speed { 
+			flex-basis: 20%; 
+			color: #ddd;
+		}
+		
+		#content  { 
+			flex-basis: 80%; 
+			overflow: auto;
+		}
+
+		pre, code{
+			color: #bbb;
+			font-size: 80%;
+			white-space: pre-wrap;
+		}
+		
+		
 
 		#clear, #share { 
 			flex-basis: 15%; 
 			min-height: 20pt;
 			border-radius: 5px;
-			background-color: #F2F2F2;
+			background-color: #275950;
+			color: #eee;
 		}
 		#listen { 
 			flex-basis: 60%; 
 			min-height: 40pt;
 			border-radius: 100px;
-			background-color: #7295DB;
+			background-color: #2A8C82;
 			color: #fff;
 
 		}
+		
 	</style>
 </head>
 <body>
@@ -75,14 +104,14 @@
 		<select id="drop-down"></select>
 		<select id="speed">
 			<option value=1>1×</option>
+			<option value=1.25>1.3×</option>
 			<option value=1.5>1.5×</option>
+			<option value=1.75>1.8×</option>
 			<option value=2>2×</option>
-			<option value=2.5>2.5×</option>
-			<option value=3>3×</option>
 			<option value=0.8>0.8×</option>
 		</select>
 	</div>
-	<textarea id="text-area"></textarea>
+	<div contenteditable="true" id="content"></div>
 	<div id="buttons-container">
 		<button id="clear">Clear</button>
 		<button id="listen">Listen</button>
@@ -92,13 +121,13 @@
 	<script>
 		const speed = document.getElementById("speed");
 		const dropDown = document.getElementById("drop-down");
-		//dropDown.addEventListener('change', speakMessage);
-		const textArea = document.getElementById("text-area");
+		const content = document.getElementById("content");
 		const recordButton = document.getElementById("listen");
 		const clearConversation = document.getElementById("clear");
 		const shareButton = document.getElementById("share");
 		var isRecording = false;
 		var mediaRecorder;
+		var mediaStream;
 		var recordedChunks = [];
 
 		let key = new URLSearchParams(window.location.search).get('key');
@@ -109,44 +138,58 @@
 		var modes = {
 			'Concise factual': {pipeline: chat, params: {}, messages: {
 				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
-			'Concise factual GPT4': {pipeline: chat, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
+			'GPT4: Concise factual': {pipeline: chat, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
 				system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
-			'Pohádkobot': {pipeline: chat, params: {'temperature': 2}, messages: {
+			'Translator': {pipeline: chat,  params: {'model': 'gpt-4', 'temperature': 0}, messages: {
+				system: 
+					`You are an accurate translator.
+					- Translate between last 2 languages used.
+					- If there was just 1 language used previously, translate to the other language from ({}).
+					- No notes, explanations.
+					- Do not mention what language did you translate to. 
+					- Do not repeat the request for the translation.
+					`,	
+				user:
+					`Example:
+					Text: Translate to French. Nice to meet you. 
+					Translation: Le français est une très belle langue.
+
+					Translate the following text.
+
+					Text:{}
+					Translation:`, 
+				remember: 2
+				}},
+			'Pohádkobot': {pipeline: chat, params: {'temperature': 1}, messages: {
 				system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
 			'Repeat what I say': {pipeline: speak}
 		};
+		var languages = "Czech, English";
 		var page = 0;
+
+		var wakelock = null;
 				
-		
-
-		try { window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) } catch {}
-
-		if (typeof window.speechSynthesis === 'undefined') 
-			log("Your phone has no voices:(");
-		else
-			getBestVoices();
-
-		setupUI();
-
+		try { 
+			setupUI();
+		} catch (e) {log(e)}
 
 		function setupUI() {
+			try{ window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) 
+				getBestVoices();
+			} catch {log("Your phone can not speak:(")}
 			for(role in modes){
-				let option = document.createElement("option");
+				let option = document.createElement('option');
 				option.textContent = role;
 				option.value = role;
 				dropDown.appendChild(option);
 			}
 			clear();
-			if(!navigator.share){
-				shareButton.textContent = "";
-				shareButton.style.backgroundColor = 'none';
-			}
 		}
 
 		document.addEventListener('touchstart', handleTouchStart, false);        
 		document.addEventListener('touchend', handleTouchEnd, false);
 
-		var touche = [0, 0];                                                        
+		var touche = [0, 0];
 		function handleTouchStart(evt) {                                         
 			touche = [evt.touches[0].clientX, evt.touches[0].clientY];
 		}
@@ -161,10 +204,12 @@
 		}
 
 		function share(){
-			if (navigator.share)
-				navigator.share({text: textArea.value})
-					.then(() => console.log('Successful share'))
-					.catch((error) => console.log('Error sharing:', error));
+			if(content.innerHTML)
+				if (navigator.share)
+					navigator.share({text: content.innerHTML})
+						.then(() => console.log('Successful share'))
+						.catch((error) => console.log('Error sharing:', error));
+				else navigator.clipboard.writeText(content.innerHTML);
 		}
 
 		function flip(p) {
@@ -181,30 +226,59 @@
 		}
 
 		var pressTimer;
-		shareButton.addEventListener('touchstart', function(event) {
+		shareButton.addEventListener('touchstart', longTouch, {passive: false});
+		shareButton.addEventListener('touchend', longShare, {passive: false});
+		recordButton.addEventListener('touchstart', longTouch, {passive: false});
+		recordButton.addEventListener('touchend', longListen, {passive: false});
+		
+		function longTouch(event){
 			pressTimer = performance.now();
 			event.preventDefault();
-		}, {passive: false});
-		shareButton.addEventListener('touchend', function(event) {
+		}
+		function longShare(event){
 			if(performance.now() - pressTimer > 2000){
-				//if( event.target == shareButton )
 				try { (new Audio(URL.createObjectURL(recordedAudio)).play()) } catch {}
-			}
-			event.preventDefault();
-		}, {passive: false});
+				event.preventDefault();
+			}  else 
+				event.target.click()
+		}
+		function longListen(event){
+			if(performance.now() - pressTimer > 2000){
+				try { 
+					if(content.innerText)
+						modes[dropDown.value].pipeline(content.innerText);
+					else if (navigator.clipboard){
+						navigator.clipboard.readText().then(clipText => {
+							content.innerHTML = clipText;
+							modes[dropDown.value].pipeline(clipText);
+						});
+					}
+				} catch (e) {
+					log(e)
+				}
+				event.preventDefault();
+			}  else 
+				event.target.click()
+		}
 
 		function log(text){
-			textArea.value += text + " ";
+			content.innerHTML += text + " ";
 		}
 		function show(text){
-			textArea.value = text ;
+			content.innerHTML = enhance4screen(text);
+			shareButton.textContent = navigator.share ? 'Share' : 'Copy';
 		}
 
 		recordButton.addEventListener("click", () => {
 			if (isRecording) 
 				stopRecording();
-			else
-				startRecording();
+			else if(wakelock){
+					window.speechSynthesis.cancel();
+					wakelock.release();
+					wakelock = null;
+					recordButton.textContent = "Listen";
+				}else
+					startRecording();
 		});
 
 		clearConversation.addEventListener("click", clear);
@@ -212,9 +286,26 @@
 		shareButton.addEventListener("click", share);
 		speed.addEventListener("change", testSpeed);
 
+
+		function enhance4screen(text){
+			text = text.replace(/\n/g, "<br/>\n");
+			let pattern = /^(?:\s*)```([\s\S]*?)```\s*$/gm;
+			return text.replace(pattern, '\n<pre><code>' + '$1' + '</code></pre>\n');
+		}
 		
 
 		/// Synthesizer TODO: encapsulate
+
+		function simplify2read(text){
+			// remove code blocks
+			let processed = text.replace(/(```.*?```)/gs, "Example code.\n");
+			processed = processed.replace(/`/g, "'"); // it reads it as 'back quote'
+
+			// decrease wokiness
+			processed = processed.replace(/\b(\w{3,})\/á\b/g, '$1');
+
+			return processed
+		}
 
 
 		const czechChars = /[ěščřžýáíéúůďťň]/i; 
@@ -240,56 +331,67 @@
 				return voices['en'];
 		}
 
-		function speak(text){
-			text = simplify2read(text);
+		async function speak(text){
 			if ('speechSynthesis' in window) {
+				recordButton.textContent = "Shh!";
 				let rate = speed.value;
-				const msg = new SpeechSynthesisUtterance();
+				const utterance = new SpeechSynthesisUtterance();
 				//msg.onend = () => {console.log('Speech ended.');};
-				msg.voice = getVoiceByLang(text);
-				msg.text = text;
-				msg.rate = rate;
-				window.speechSynthesis.speak(msg);
-			  } else {
-				console.log('Speech synthesis not supported');
-			  }
-			  recordButton.textContent = "Listen";
+				utterance.voice = getVoiceByLang(text);
+				utterance.text = simplify2read(text);;
+				utterance.rate = rate;
+
+				utterance.onend = function(event) {
+					if(wakelock)
+						wakelock.release();
+					wakelock = null;
+					recordButton.textContent = "Listen";
+				};
+
+				window.speechSynthesis.speak(utterance);
+
+			  } 
+			  else 
+				log("Your phone can't speak");
 		}
+
+		document.addEventListener("visibilitychange", function() {
+			if (document.hidden) {	// lost focus
+				//window.speechSynthesis.pause();
+				window.speechSynthesis.resume();
+			} 
+		});
 
 		function testSpeed(){
 			let sel = speed.options[speed.selectedIndex].innerHTML;
-			speak("Rychlost čtení je nastavena na " + sel);
+			speak("The speed of speaking set to " + sel);
 		}
-
-		function simplify2read(text){
-			// remove code blocks
-			let processed = text.replace(/(```.*?```)/gs, "Example code.\n");
-			processed = processed.replace('`', "'"); // it reads it as 'back quote'
-
-			// decrease wokiness
-			processed = processed.replace(/\b(\w{3,})\/á\b/g, '$1');
-
-			return processed
-		}
-
 
 
 		/// Recorder: TODO encapsulate
 		
 	  
 		async function startRecording() {
+			window.speechSynthesis.cancel();
+			try {wakelock = await navigator.wakeLock.request('screen');} catch {}
+
 			isRecording = true;
-			recordButton.textContent = "STOP listening and Answer!";
+			recordButton.textContent = "STOP rec & Answer!";
 
-			const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			mediaRecorder = new MediaRecorder(mediaStream);
-			recordedChunks = [];
-			mediaRecorder.start();
+			try {
+				mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+				mediaRecorder = new MediaRecorder(mediaStream);
+				recordedChunks = [];
+				mediaRecorder.start();
 
-			mediaRecorder.addEventListener('dataavailable', event => {
-				if (event.data.size > 0)
-					recordedChunks.push(event.data);
-			});
+				mediaRecorder.addEventListener('dataavailable', event => {
+					if (event.data.size > 0)
+						recordedChunks.push(event.data);
+				});
+			} catch (e) {
+				log(e);
+				speak(`Error while recording: ${e.name})`);
+			}
 		}
 
 		var recordedAudio;
@@ -297,6 +399,7 @@
 			isRecording = false;
 			recordButton.textContent = "…recognizing";
 			mediaRecorder.stop();
+			mediaStream.getTracks().forEach(track => track.stop()); // free resources
 
 			try {  
 				mediaRecorder.addEventListener("stop", async () => {
@@ -318,14 +421,17 @@
 						speak(query['error']['message']);
 					}
 				});
-			} catch (e) {log(e)}
+			} catch (e) {
+				log("Can't save the recording");
+				log(e);
+			}
 		}
 
 
 
 
 
-		/// AI: TODO encapsualte
+		/// AI: TODO encapsulate
 
 
 		async function transcribe(file){
@@ -341,15 +447,40 @@
 					body: formData //,model: "whisper-1"
 				});
 				const query = await transcription.json();
+				// error on iPhone: https://community.openai.com/t/whisper-api-cannot-read-files-correctly/93420
 				return (query);
 			} catch(e){
+				log("Can't transcribe the recording");
 				log(e);
-				return {'text': "Error in voice recognition"}
+				return {'error': {'message':"Error in voice recognition"}}
 			}
 		}
 
+		function messageFromTemplate(role, text){
+			try {
+				template = modes[dropDown.value]['messages'][role];
+				if(text)
+					text = template.replace('{}', text);
+				else
+					text = template;
+			} catch {}
+			
+			return {'role': role, 'content': text };
+		}
+
+		function keepLastMessages(){
+			try{
+				let keep = modes[dropDown.value]['messages']['remember'];
+				if (keep < messages.length){
+					messages = messages.splice(messages.length - keep);
+					if('system' in modes[dropDown.value]['messages'])
+						messages.unshift(messageFromTemplate('system', languages));
+				}
+			} catch {}
+		}
+
 		async function chat(question){
-			messages.push({ role: 'user', content: query.text });
+			messages.push(messageFromTemplate('user', question));
 			recordButton.textContent = "…thinking";
 
 			let params = modes[dropDown.value].params;
@@ -371,27 +502,38 @@
 			try {
 				message = reply['choices'][0]['message']
 				messages.push(message);
+				keepLastMessages();
 				tokens = reply['usage']['total_tokens'];
+
 				clearConversation.textContent = "Clear " + tokens + " words";
 				show(message['content']);
 				page = messages.length-1;
+				speak(message['content']);
 			} 
-			catch (e) {log(e);}
-			speak(message['content']);
+			catch (e) {
+				if('error' in reply && 'message' in reply['error']){
+					message = reply['error']['message'];
+					show(message)
+					speak(message)
+				} else { 
+					log(e); // name, message, stack
+					speak(`Error ${e.name}`)
+				}}
+			
 		}
 
 		function clear(){
-			let system = "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities or appologies.";
 			try {
-				log(dropDown.value)
-				messages = [{ role: 'system', content: modes[dropDown.value].messages.system}];
-			} catch { messages = []; }
+				messages = [messageFromTemplate('system', languages)];
+			} 
+			catch { 
+				messages = []; }
 
-			textArea.value = "";
+			content.innerHTML = "";
 			clearConversation.textContent = "";
+			shareButton.textContent = ""
 			tokens = 0;
 		}
-
 
 	</script>
 </body>
