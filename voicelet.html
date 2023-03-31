@@ -117,10 +117,9 @@
 		<button id="listen">Listen</button>
 		<button id="share">Share</button>
 	</div>
-	
 	<script>
 		const speed = document.getElementById("speed");
-		const dropDown = document.getElementById("drop-down");
+		const mode = document.getElementById("drop-down");
 		const content = document.getElementById("content");
 		const recordButton = document.getElementById("listen");
 		const clearConversation = document.getElementById("clear");
@@ -131,7 +130,6 @@
 		var recordedChunks = [];
 
 		let key = new URLSearchParams(window.location.search).get('key');
-
 
 		var messages = [];
 		var tokens = 0;
@@ -174,16 +172,50 @@
 		} catch (e) {log(e)}
 
 		function setupUI() {
-			try{ window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) 
+			// setup voice synthesizer
+			try{ 
+				window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) 
 				getBestVoices();
-			} catch {log("Your phone can not speak:(")}
+			} catch {
+				if(!iPhoneFix())
+					log("Your phone can not speak:(");
+			}
+
+			// setup modes from conf
 			for(role in modes){
 				let option = document.createElement('option');
 				option.textContent = role;
 				option.value = role;
-				dropDown.appendChild(option);
+				mode.appendChild(option);
 			}
+
+			// read cookies
+			Array.from(document.getElementsByTagName('select')).forEach(dropDown => {
+				let id = dropDown.getAttribute('id');
+				if (localStorage.getItem(id)){
+					dropDown.value = localStorage.getItem(id);
+				}
+			});
 			clear();
+		}
+
+		function iPhoneFix(){
+			return
+			if(/iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)){
+				log("fixing iPhone");
+				var recognition = new webkitSpeechRecognition();
+				recognition.start();
+				recognition.onresult = function(e) {
+					let result = e.results[0][0].transcript;
+					ask(result);
+				}
+				try{
+					log(window.speechSynthesis);
+					log(window.speechSynthesis.getVoices())
+					log(JSON.stringify(window.speechSynthesis.getVoices()))
+				} catch {}
+				return true
+			}
 		}
 
 		document.addEventListener('touchstart', handleTouchStart, false);        
@@ -226,38 +258,55 @@
 		}
 
 		var pressTimer;
-		shareButton.addEventListener('touchstart', longTouch, {passive: false});
-		shareButton.addEventListener('touchend', longShare, {passive: false});
-		recordButton.addEventListener('touchstart', longTouch, {passive: false});
-		recordButton.addEventListener('touchend', longListen, {passive: false});
-		
-		function longTouch(event){
-			pressTimer = performance.now();
-			event.preventDefault();
+		longTouch(shareButton, longShare);
+		longTouch(recordButton, longListen);
+		longTouch(clearConversation, clearOne);
+
+		function longTouch(element, action){
+			element.addEventListener('touchstart', function(event){ 
+					pressTimer = performance.now(); 
+					event.preventDefault()
+				}, 
+				{passive: false});
+			element.addEventListener('touchend', action, {passive: false});
 		}
+
 		function longShare(event){
-			if(performance.now() - pressTimer > 2000){
+			if(performance.now() - pressTimer > 1000){
 				try { (new Audio(URL.createObjectURL(recordedAudio)).play()) } catch {}
-				event.preventDefault();
-			}  else 
+				event.preventDefault();}  
+			else 
 				event.target.click()
 		}
+
 		function longListen(event){
-			if(performance.now() - pressTimer > 2000){
-				try { 
-					if(content.innerText)
-						modes[dropDown.value].pipeline(content.innerText);
-					else if (navigator.clipboard){
-						navigator.clipboard.readText().then(clipText => {
-							content.innerHTML = clipText;
-							modes[dropDown.value].pipeline(clipText);
-						});
-					}
-				} catch (e) {
-					log(e)
-				}
-				event.preventDefault();
-			}  else 
+			if(performance.now() - pressTimer > 1000){
+				if(isRecording){
+					stopRecording();
+					recordButton.textContent = "Listen"; 
+					wakelock.release();
+					wakelock = null;}
+				else 
+					try { 
+						if(content.innerText)
+							modes[mode.value].pipeline(content.innerText);
+						else if (navigator.clipboard){
+							navigator.clipboard.readText().then(clipText => {
+								content.innerHTML = clipText;
+								modes[mode.value].pipeline(clipText);
+								});}} 
+					catch (e) {
+						log(e)}
+				event.preventDefault();}
+			else 
+				event.target.click()
+		}
+
+		function clearOne(){
+			if(performance.now() - pressTimer > 1000){
+				try { messages = messages.splice(page, 1) } catch {}
+				event.preventDefault();}  
+			else 
 				event.target.click()
 		}
 
@@ -269,28 +318,31 @@
 			shareButton.textContent = navigator.share ? 'Share' : 'Copy';
 		}
 
-		recordButton.addEventListener("click", () => {
-			if (isRecording) 
-				stopRecording();
-			else if(wakelock){
-					window.speechSynthesis.cancel();
-					wakelock.release();
-					wakelock = null;
-					recordButton.textContent = "Listen";
-				}else
-					startRecording();
-		});
-
+		recordButton.addEventListener("click", recordOrProcess);
 		clearConversation.addEventListener("click", clear);
-		dropDown.addEventListener("change", clear);
+		mode.addEventListener("change", clear);
 		shareButton.addEventListener("click", share);
 		speed.addEventListener("change", testSpeed);
 
 
+		function recordOrProcess() {
+			if (isRecording) 
+				processAudio();
+			else if(wakelock){
+					window.speechSynthesis.cancel();
+					wakelock.release();
+					wakelock = null;
+					recordButton.textContent = "Listen";}
+				else
+					startRecording();
+		}
+
+
 		function enhance4screen(text){
-			text = text.replace(/\n/g, "<br/>\n");
 			let pattern = /^(?:\s*)```([\s\S]*?)```\s*$/gm;
-			return text.replace(pattern, '\n<pre><code>' + '$1' + '</code></pre>\n');
+			text = text.replace(pattern, '\n<pre><code>' + '$1' + '</code></pre>\n');
+			text = text.replace(/\n/g, "<br/>\n");
+			return text
 		}
 		
 
@@ -363,13 +415,13 @@
 		});
 
 		function testSpeed(){
+			localStorage.setItem('speed', this.value);
 			let sel = speed.options[speed.selectedIndex].innerHTML;
 			speak("The speed of speaking set to " + sel);
 		}
 
 
 		/// Recorder: TODO encapsulate
-		
 	  
 		async function startRecording() {
 			window.speechSynthesis.cancel();
@@ -394,12 +446,17 @@
 			}
 		}
 
-		var recordedAudio;
-		async function stopRecording() {
-			isRecording = false;
-			recordButton.textContent = "…recognizing";
+
+		function stopRecording(){
 			mediaRecorder.stop();
 			mediaStream.getTracks().forEach(track => track.stop()); // free resources
+			isRecording = false;
+		}
+
+		var recordedAudio;
+		async function processAudio() {
+			recordButton.textContent = "…recognizing";
+			stopRecording();
 
 			try {  
 				mediaRecorder.addEventListener("stop", async () => {
@@ -411,27 +468,29 @@
 
 					query = await transcribe(recordedAudio);
 					
-					if(query.hasOwnProperty('text')){	
-						show(query.text);
-						page = messages.length-1;
-						modes[dropDown.value].pipeline(query.text)
-					}
+					if(query.hasOwnProperty('text'))
+						ask(query.text);
+
 					if(query.hasOwnProperty('error')){
 						log("Error: "+query['error']['message']);
-						speak(query['error']['message']);
-					}
-				});
-			} catch (e) {
+						speak(query['error']['message']);}});
+			} 
+			catch (e) {
 				log("Can't save the recording");
-				log(e);
-			}
+				log(e);}
 		}
 
-
+		
 
 
 
 		/// AI: TODO encapsulate
+
+		function ask(text){
+			show(text);
+			page = messages.length-1;
+			modes[mode.value].pipeline(text);
+		}
 
 
 		async function transcribe(file){
@@ -458,7 +517,7 @@
 
 		function messageFromTemplate(role, text){
 			try {
-				template = modes[dropDown.value]['messages'][role];
+				template = modes[mode.value]['messages'][role];
 				if(text)
 					text = template.replace('{}', text);
 				else
@@ -470,10 +529,10 @@
 
 		function keepLastMessages(){
 			try{
-				let keep = modes[dropDown.value]['messages']['remember'];
+				let keep = modes[mode.value]['messages']['remember'];
 				if (keep < messages.length){
 					messages = messages.splice(messages.length - keep);
-					if('system' in modes[dropDown.value]['messages'])
+					if('system' in modes[mode.value]['messages'])
 						messages.unshift(messageFromTemplate('system', languages));
 				}
 			} catch {}
@@ -483,7 +542,7 @@
 			messages.push(messageFromTemplate('user', question));
 			recordButton.textContent = "…thinking";
 
-			let params = modes[dropDown.value].params;
+			let params = modes[mode.value].params;
 			if(!('model' in params))
 				params.model = 'gpt-3.5-turbo';
 			params.messages = messages;
