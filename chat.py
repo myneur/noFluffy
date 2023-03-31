@@ -627,7 +627,7 @@ class Synthesizer:
 			if l <= 4:
 				processed += line +'\n'
 
-		# decrease wokiness
+		# unwoke
 		processed = re.sub(r'\b(\w{3,})/á\b', r'\1', processed)
 				
 		return processed

@@ -124,11 +124,7 @@
 		const recordButton = document.getElementById("listen");
 		const clearConversation = document.getElementById("clear");
 		const shareButton = document.getElementById("share");
-		var isRecording = false;
-		var mediaRecorder;
-		var mediaStream;
-		var recordedChunks = [];
-
+		
 		let key = new URLSearchParams(window.location.search).get('key');
 
 		var messages = [];
@@ -160,27 +156,222 @@
 				}},
 			'Pohádkobot': {pipeline: chat, params: {'temperature': 1}, messages: {
 				system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
-			'Repeat what I say': {pipeline: speak}
+			'Repeat what I say': {pipeline: function(text){say.say(text)}}
 		};
 		var languages = "Czech, English";
 		var page = 0;
 
 		var wakelock = null;
-				
-		try { 
-			setupUI();
-		} catch (e) {log(e)}
 
-		function setupUI() {
-			// setup voice synthesizer
-			try{ 
-				window.speechSynthesis.addEventListener('voiceschanged', getBestVoices) 
-				getBestVoices();
-			} catch {
-				if(!iPhoneFix())
-					log("Your phone can not speak:(");
+		
+		class Recorder {
+			constructor(){
+				this.format = 'mp3';
+				this.type = "audio/mpeg"; //audio/mpeg, audio/mp4, audio/x-m4a, not audio/webm
+				this.isRecording = false;
+				this.mediaRecorder;
 			}
 
+			rec() {
+				this.isRecording = true;
+			}
+
+			stop() {
+				this.isRecording = false;
+			}
+
+			toggleRec(){
+				if(this.isRecording)
+					return this.stop();
+				else 
+					return this.rec();
+			}
+		}
+
+		class iPhoneRecorder extends Recorder {
+			rec(){				 
+				super.rec();
+				this.mediaRecorder = new webkitSpeechRecognition();
+				this.mediaRecorder.start();
+				this.mediaRecorder.onresult = function(e) {
+					let result = e.results[0][0].transcript;
+					ask(result);
+				}
+				return 'Speak!'
+			}
+
+			stop() {
+				super.stop();
+				this.mediaRecorder.stop();
+				return 'Listen';
+			}
+		}
+
+		class OpenAIRecorder extends Recorder {
+			constructor(){
+				super();
+
+				this.recordedAudio = null;
+				
+				this.mediaStream;
+				this.recordedChunks = [];
+
+			}
+	  
+			async rec() {
+				super.rec();
+				window.speechSynthesis.cancel();
+				try {wakelock = await navigator.wakeLock.request('screen');} catch {}
+
+				try {
+					this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+					this.mediaRecorder = new MediaRecorder(this.mediaStream);
+					this.recordedChunks = [];
+					this.mediaRecorder.start();
+
+					this.mediaRecorder.addEventListener('dataavailable', event => {
+						if (event.data.size > 0)
+							this.recordedChunks.push(event.data);
+					});
+					return 'STOP rec & Answer!'
+
+				} catch (e) {
+					log(e);
+					say.say(`Error while recording: ${e.name})`);
+					return `Error while recording: ${e.name})`
+				}
+			}
+
+
+			stop() {
+				super.stop();
+				this.mediaRecorder.stop();
+				this.mediaStream.getTracks().forEach(track => track.stop()); // free resources
+			}
+
+			toggleRec(){
+				if (this.isRecording) {
+					this.processAudio();
+					return '…recognizing';
+				}
+				else if(wakelock){
+					window.speechSynthesis.cancel();
+					wakelock.release();
+					wakelock = null;
+					return 'Listen';
+					}
+				else 
+					this.rec();
+					return 'STOP rec & Answer!'	// TODO should resove in rec()
+			}
+
+			
+			async processAudio() {
+				this.stop();
+				try {  
+					this.mediaRecorder.addEventListener("stop", async () => {
+						const audioBlob = new Blob(this.recordedChunks, {type: this.type}); 
+						//const audioUrl = URL.createObjectURL(audioBlob);
+						this.recordedAudio = new File([audioBlob], "recordedAudio."+this.format, {type: this.type});
+
+						let query = await transcribe(this.recordedAudio);
+						
+						if(query.hasOwnProperty('text'))
+							ask(query.text);
+
+						if(query.hasOwnProperty('error')){
+							log("Error: "+query['error']['message']);
+							say.say(query['error']['message']);}});
+				} 
+				catch (e) {
+					log("Can't save the recording");
+					log(e);}
+			}
+		}
+
+		class Synthesizer {
+			constructor(){
+				this.czechChars = /[ěščřžýáíéúůďťň]/i; 
+				this.voices = this.getBestVoices();
+				}
+
+			getBestVoices(){
+				try{
+					this.voices = {};
+					window.speechSynthesis.getVoices().forEach(voice => {
+						let lang = voice.lang.substring(0,2);
+						if(! (lang in this.voices))
+							this.voices[lang] = voice;
+						else
+							if(voice.name.toLowerCase().includes('premium'))
+								this.voices[lang] = voice;
+						});
+					}
+				catch (e){
+					log(`${e.name} <br/>`);
+					log(`${e.message}<br/>${e.lineNumber}<br/><br/><br/>${e.stack}`);
+					}
+				}
+
+			simplify2read(text){
+				// remove code blocks
+				let processed = text.replace(/(```.*?```)/gs, "Example code.\n");
+				processed = processed.replace(/`/g, "'"); // it reads it as 'back quote'
+
+				// unwoke
+				processed = processed.replace(/(\p{L}{3,})(\/á)|(\/a)(?=\s|$)/ug, '$1');
+				processed = processed.replace(/(\p{L}{3,})\(a\)(?=\s|$)/ug, '$1');
+
+				return processed
+				}
+
+			getVoiceByLang(str) {
+				const substring = str.substring(0, 100);
+				if (this.czechChars.test(substring))
+					return this.voices['cs'];
+				else
+					return this.voices['en'];
+				}
+
+			async say(text, callback){
+				if ('speechSynthesis' in window) {
+					recordButton.textContent = "Shh!";
+					let rate = speed.value;
+					const utterance = new SpeechSynthesisUtterance();
+					utterance.voice = this.getVoiceByLang(text);
+					utterance.text = this.simplify2read(text);;
+					utterance.rate = rate;
+
+					utterance.onend = function(event) {
+						if(wakelock)
+							wakelock.release();
+						wakelock = null;
+						recordButton.textContent = "Listen";
+						if(callback){
+							callback()
+							}
+						};
+					window.speechSynthesis.speak(utterance);
+
+					return 'Shh!'
+				 	} 
+				else 
+					log("Your phone can't speak");
+					return('Listen')
+					}
+				}
+
+		if(/iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent))
+			var recorder = new iPhoneRecorder();
+		else
+			var recorder = new OpenAIRecorder();
+			
+		var say = new Synthesizer();
+
+		try { setupUI() } 
+		catch (e) { log(e) }
+
+		function setupUI() {
 			// setup modes from conf
 			for(role in modes){
 				let option = document.createElement('option');
@@ -197,26 +388,16 @@
 				}
 			});
 			clear();
+
+			// setup voice synthesizer
+			say.getBestVoices();
+			try { window.speechSynthesis.addEventListener('voiceschanged', function(){ say.getBestVoices()}) } 
+			catch (e) {
+				//log("Your phone can not speak:(")
+			}
+			
 		}
 
-		function iPhoneFix(){
-			return
-			if(/iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)){
-				log("fixing iPhone");
-				var recognition = new webkitSpeechRecognition();
-				recognition.start();
-				recognition.onresult = function(e) {
-					let result = e.results[0][0].transcript;
-					ask(result);
-				}
-				try{
-					log(window.speechSynthesis);
-					log(window.speechSynthesis.getVoices())
-					log(JSON.stringify(window.speechSynthesis.getVoices()))
-				} catch {}
-				return true
-			}
-		}
 
 		document.addEventListener('touchstart', handleTouchStart, false);        
 		document.addEventListener('touchend', handleTouchEnd, false);
@@ -273,7 +454,7 @@
 
 		function longShare(event){
 			if(performance.now() - pressTimer > 1000){
-				try { (new Audio(URL.createObjectURL(recordedAudio)).play()) } catch {}
+				try { (new Audio(URL.createObjectURL(recorder.recordedAudio)).play()) } catch {}
 				event.preventDefault();}  
 			else 
 				event.target.click()
@@ -281,8 +462,8 @@
 
 		function longListen(event){
 			if(performance.now() - pressTimer > 1000){
-				if(isRecording){
-					stopRecording();
+				if(recorder.isRecording){
+					recorder.stop();
 					recordButton.textContent = "Listen"; 
 					wakelock.release();
 					wakelock = null;}
@@ -318,24 +499,12 @@
 			shareButton.textContent = navigator.share ? 'Share' : 'Copy';
 		}
 
-		recordButton.addEventListener("click", recordOrProcess);
+		recordButton.addEventListener("click", function(){ 
+			recordButton.textContent = recorder.toggleRec()});
 		clearConversation.addEventListener("click", clear);
 		mode.addEventListener("change", clear);
 		shareButton.addEventListener("click", share);
 		speed.addEventListener("change", testSpeed);
-
-
-		function recordOrProcess() {
-			if (isRecording) 
-				processAudio();
-			else if(wakelock){
-					window.speechSynthesis.cancel();
-					wakelock.release();
-					wakelock = null;
-					recordButton.textContent = "Listen";}
-				else
-					startRecording();
-		}
 
 
 		function enhance4screen(text){
@@ -346,66 +515,10 @@
 		}
 		
 
-		/// Synthesizer TODO: encapsulate
+		
+		
+		
 
-		function simplify2read(text){
-			// remove code blocks
-			let processed = text.replace(/(```.*?```)/gs, "Example code.\n");
-			processed = processed.replace(/`/g, "'"); // it reads it as 'back quote'
-
-			// decrease wokiness
-			processed = processed.replace(/\b(\w{3,})\/á\b/g, '$1');
-
-			return processed
-		}
-
-
-		const czechChars = /[ěščřžýáíéúůďťň]/i; 
-		let voices = {}
-
-		function getBestVoices(){
-			window.speechSynthesis.getVoices().forEach(voice => {
-				let lang = voice.lang.substring(0,2);
-				if(! (lang in voices)){
-					voices[lang] = voice;
-				} else
-					if(voice.name.toLowerCase().includes('premium')){
-						voices[lang] = voice;
-					}
-			});
-		}
-
-		function getVoiceByLang(str) {
-			const substring = str.substring(0, 100);
-			if (czechChars.test(substring))
-				return voices['cs'];
-			else
-				return voices['en'];
-		}
-
-		async function speak(text){
-			if ('speechSynthesis' in window) {
-				recordButton.textContent = "Shh!";
-				let rate = speed.value;
-				const utterance = new SpeechSynthesisUtterance();
-				//msg.onend = () => {console.log('Speech ended.');};
-				utterance.voice = getVoiceByLang(text);
-				utterance.text = simplify2read(text);;
-				utterance.rate = rate;
-
-				utterance.onend = function(event) {
-					if(wakelock)
-						wakelock.release();
-					wakelock = null;
-					recordButton.textContent = "Listen";
-				};
-
-				window.speechSynthesis.speak(utterance);
-
-			  } 
-			  else 
-				log("Your phone can't speak");
-		}
 
 		document.addEventListener("visibilitychange", function() {
 			if (document.hidden) {	// lost focus
@@ -417,71 +530,10 @@
 		function testSpeed(){
 			localStorage.setItem('speed', this.value);
 			let sel = speed.options[speed.selectedIndex].innerHTML;
-			speak("The speed of speaking set to " + sel);
+
+			say.say("The speed of speaking set to " + sel, function(){ say.say("Rychlost řeči nastavena na " + sel);});
+			
 		}
-
-
-		/// Recorder: TODO encapsulate
-	  
-		async function startRecording() {
-			window.speechSynthesis.cancel();
-			try {wakelock = await navigator.wakeLock.request('screen');} catch {}
-
-			isRecording = true;
-			recordButton.textContent = "STOP rec & Answer!";
-
-			try {
-				mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-				mediaRecorder = new MediaRecorder(mediaStream);
-				recordedChunks = [];
-				mediaRecorder.start();
-
-				mediaRecorder.addEventListener('dataavailable', event => {
-					if (event.data.size > 0)
-						recordedChunks.push(event.data);
-				});
-			} catch (e) {
-				log(e);
-				speak(`Error while recording: ${e.name})`);
-			}
-		}
-
-
-		function stopRecording(){
-			mediaRecorder.stop();
-			mediaStream.getTracks().forEach(track => track.stop()); // free resources
-			isRecording = false;
-		}
-
-		var recordedAudio;
-		async function processAudio() {
-			recordButton.textContent = "…recognizing";
-			stopRecording();
-
-			try {  
-				mediaRecorder.addEventListener("stop", async () => {
-					let type = "audio/mpeg"; //audio/mpeg, audio/mp4, audio/x-m4a, not audio/webm
-					let extension = ".mp3"
-					const audioBlob = new Blob(recordedChunks, {type: type}); 
-					//const audioUrl = URL.createObjectURL(audioBlob);
-					recordedAudio = new File([audioBlob], "recordedAudio"+extension, {type: type});
-
-					query = await transcribe(recordedAudio);
-					
-					if(query.hasOwnProperty('text'))
-						ask(query.text);
-
-					if(query.hasOwnProperty('error')){
-						log("Error: "+query['error']['message']);
-						speak(query['error']['message']);}});
-			} 
-			catch (e) {
-				log("Can't save the recording");
-				log(e);}
-		}
-
-		
-
 
 
 		/// AI: TODO encapsulate
@@ -567,16 +619,16 @@
 				clearConversation.textContent = "Clear " + tokens + " words";
 				show(message['content']);
 				page = messages.length-1;
-				speak(message['content']);
+				say.say(message['content']);
 			} 
 			catch (e) {
 				if('error' in reply && 'message' in reply['error']){
 					message = reply['error']['message'];
 					show(message)
-					speak(message)
+					say.say(message)
 				} else { 
 					log(e); // name, message, stack
-					speak(`Error ${e.name}`)
+					say.say(`Error ${e.name}`)
 				}}
 			
 		}
