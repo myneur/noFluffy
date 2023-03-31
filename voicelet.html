@@ -489,7 +489,11 @@
 					}
 				}
 
-		if(/iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent))
+		function detectiPhone(){
+			return /iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
+		}
+
+		if(detectiPhone())
 			var recorder = new iPhoneRecorder();
 		else
 			var recorder = new OpenAIRecorder();
@@ -629,8 +633,16 @@
 			shareButton.textContent = navigator.share ? 'Share' : 'Copy';
 		}
 
+		var unlocked = false;
 		recordButton.addEventListener("click", function(){ 
-			recordButton.textContent = recorder.toggleRec()});
+			if(!unlocked && detectiPhone()){
+				say.say("This is sentence is necassary to make it work on iPhone. Try Android or desktop for better voice recognition. Now you can talk.", function(){recordButton.textContent = recorder.toggleRec()});
+				unlocked = true;
+				return
+			}
+			unlocked = true;
+			recordButton.textContent = recorder.toggleRec();
+			});
 		clearConversation.addEventListener("click", clear);
 		mode.addEventListener("change", clear);
 		shareButton.addEventListener("click", share);
@@ -644,8 +656,6 @@
 			return text
 		}
 		
-
-
 		document.addEventListener("visibilitychange", function() {
 			if (document.hidden) {	// lost focus
 				//window.speechSynthesis.pause();
