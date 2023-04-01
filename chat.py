@@ -40,8 +40,9 @@ class Chat:
 
 		print("""– 'Listen': ENTER to start & stop
 – 'Exit': ESC (+Enter)
-- 'Functions' are '{}': f 
-– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classify else 'off'))
+- 'c'opy 'p'aste 
+- 'Functions' are '{}', using {}
+– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classify else 'off', self.ai.models[self.ai.model]))
 
 
 		cnt = len(self.ai.messages)-1
