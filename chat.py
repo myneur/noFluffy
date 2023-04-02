@@ -28,7 +28,7 @@ class Chat:
 
 		self.logger = integrations.Logger()
 
-		self.classify = False
+		self.classifier = None
 		self.minChars = 5
 
 	def guide(self):
@@ -42,7 +42,7 @@ class Chat:
 – 'Exit': ESC (+Enter)
 - 'c'opy 'p'aste 
 - 'Functions' are '{}', using {}
-– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classify else 'off', self.ai.models[self.ai.model]))
+– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classifier else 'off', self.ai.models[self.ai.model]))
 
 
 		cnt = len(self.ai.messages)-1
@@ -98,8 +98,12 @@ class Chat:
 
 			# toggle functions/classifier
 			elif 'f' == prompt:
-				self.classify = not self.classify
-				print("Functions {}".format('on' if self.classify else 'off'))
+				if self.classifier == None: 
+					self.classifier = AI('_classifier')
+				else:
+					self.classifier = None	
+
+				print("Functions {}".format('on' if self.classifier else 'off'))
 
 			# print messages
 			elif 'm' == prompt:
@@ -130,7 +134,7 @@ class Chat:
 
 			# switch model
 			elif prompt in AI.modes.keys():
-				self.ai.start(prompt)
+				self.ai = AI(prompt)
 				print(f'switched to "{prompt}"')
 
 			# ask by text prompt
@@ -167,7 +171,7 @@ class Chat:
 			print('repeating not implemented yet')
 			return None
 
-		if self.classify:
+		if self.classifier:
 			print("…classifying ")
 
 			# classify only start not to confuse him to much
@@ -176,8 +180,7 @@ class Chat:
 			if len(firstSentences)<200:
 				firstSentences = question[:200]
 			
-			#classifier = AI('_classifier')
-			action = self.ask(firstSentences, mode='_classifier', rememberMessages=False) 
+			action = self.ask(firstSentences, self.classifier, rememberMessages=False) 
 
 			# run prompt corresponding with the action that was classified
 			if action:
@@ -191,7 +194,7 @@ class Chat:
 
 			elif 'communicate' == action:
 				print('…preparing message')
-				response = self.ask(question, mode='messenger')
+				response = self.ask(question, AI('messenger'))
 				if response:
 					try:
 						data = yaml.load(response, Loader=yaml.FullLoader)
@@ -221,7 +224,7 @@ class Chat:
 
 			elif 'write' == action:
 				print('…writing text')
-				response = self.ask(question, mode='writer', rememberMessages=1)
+				response = self.ask(question, AI('_classifier'), rememberMessages=1)
 
 				response = "Here's the text:\n\n" + response + "\n\nDo you want me to send it?"
 
@@ -236,7 +239,7 @@ class Chat:
 
 						if last_word in modes:
 							response = f"Now I'm {last_word}"
-							self.ai.start(last_word)
+							# ai = AI(last_word) TODO
 						else:
 							response = f"Sorry, I can't be '{last_word}' yet"
 				except:
@@ -261,8 +264,8 @@ class Chat:
 			times = self.ai.stats.last
 			if(voice_reco):
 				s.append(times['whisper-1']['time'])
-			if self.classify:
-				s.append(times['_classifier']['time'])
+			if self.classifier:
+				s.append(times[self.classifier.mode]['time'])
 			s.append(times[self.ai.mode]['time'])
 		except Exception:
 			pass
@@ -277,13 +280,17 @@ class Chat:
 				self.say.say(response)
 			self.guide()
 
-	def ask(self, question=None, mode=None, rememberMessages=True):
+	def ask(self, question=None, ai=None, rememberMessages=True):
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		
 		if rememberMessages:
 			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
-		response = self.ai.chat(question, mode, rememberMessages)
+		
+		if ai == None:
+			ai = self.ai
+
+		response = ai.chat(question, rememberMessages)
 		
 		if 'choices' in response:
 			return response['choices'][0]['message']['content']
@@ -322,20 +329,23 @@ class AI:
 	modes = None
 	conf = None
 	models = ['gpt-3.5-turbo', 'gpt-4']
+	key = None
 
-	def __init__(self, mode='assistant', model=0):
+	def __init__(self, mode=None, model=0):
 		self.model = model
-		self.mode = mode
 		self.messages = []
 		self.tokensUsed = 0
 
 		self.stats = integrations.Stats()
 
 		self.loadConfig()
-		self.start()
+
+		self.mode = mode if mode else list(AI.modes.keys())[0]
+
+		self.clearMessages()
 
 		#openai.api_key = os.environ.get('OPENAI_KEY')
-		with open('../private.key', 'r') as key:
+		with open('../private.key', 'r') as key:	# TODO read just once
 			openai.api_key =  key.read().strip()
 
 	def loadConfig(self):
@@ -353,12 +363,6 @@ class AI:
 		self.model = (self.model+1)%len(self.models)
 		return AI.models[self.model]
 
-	def start(self, mode=None):
-		self.mode = mode if mode else list(AI.modes.keys())[0]
-		self.clearMessages()
-		self.tokensUsed = 0
-		return self.mode	
-
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
 		try:
@@ -372,22 +376,12 @@ class AI:
 			return None
 		return transcript
 
-	def chat(self, question, mode=None, rememberMessages=True): # remember # of messages of all if True
+	def chat(self, question, rememberMessages=True): # remember # of messages of all if True
 		# standard question
 
-		if not mode: 
-			mode = self.mode
-			messages = self.messages
-			realMode = None
-		# one time ask like for classification
-		else: 
-			realMode = self.mode
-			self.mode = mode
-			messages = [self.messageFromTemplate('system', question)]	 # TODO this should be done in the new instance, not by this ping-poing
-
+		messages = self.messages
 		if(question):
 			messages.append(self.messageFromTemplate('user', question))
-
 		
 		if 'model_params' in AI.modes[self.mode]:
 			params = AI.modes[self.mode]['model_params'].copy()
@@ -405,11 +399,11 @@ class AI:
 			usage = response['usage']
 			usage['time'] = t
 			usage['items'] = len(response['choices'])
-			self.stats.add(usage, mode)
+			self.stats.add(usage, self.mode)
 		
 		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout) as e:
 			t = time.time()-t
-			self.stats.add({'errors': 1, 'time': t}, mode)
+			self.stats.add({'errors': 1, 'time': t}, self.mode)
 			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
 		
 		# store messages when we are in standard chain
@@ -427,9 +421,6 @@ class AI:
 			
 			#print("\nwords/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2))+"\n")
 			self.tokensUsed = response['usage']['total_tokens']
-
-		if realMode: 
-			self.mode = realMode # TODO this should be done in the new instance, not by this ping-poing
 
 		return response
 
@@ -477,6 +468,7 @@ class AI:
 				except IndexError:
 					self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
 		else:
+			self.tokensUsed = 0
 			self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
 
 
