@@ -178,7 +178,7 @@
 						system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
 					'GPT4: Concise factual': {pipeline: function(text){ai.chat(text)}, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
 						system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
-					'Translator': {pipeline: function(text){ai.chat(text)},  params: {'model': 'gpt-4', 'temperature': 0}, messages: {
+					'Translator': {pipeline: function(text){ai.chat(text)},  params: {'temperature': 0.1}, messages: {
 						system: 
 							`You are an accurate translator.
 							- Translate between last 2 languages used.
@@ -198,7 +198,7 @@
 							Translation:`, 
 						remember: 2
 						}},
-					'Pohádkobot': {pipeline: function(text){ai.chat(text)}, params: {'temperature': 1}, messages: {
+					'Pohádkobot': {pipeline: function(text){ai.chat(text)}, params: {'temperature': 0.8}, messages: {
 						system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
 					'Repeat what I say': {pipeline: function(text){say.say(text)}}
 						};
@@ -262,11 +262,12 @@
 						if (keep < this.messages.length){
 							this.messages = this.messages.splice(this.messages.length - keep);
 							if('system' in this.modes[mode.value]['messages'])
-								this.messages.unshift(this.messageFromTemplate('system', languages));
-							}
-						} 
-						catch {}
-					}
+								if(this.messages.len == 0 || this.messages[0]['role'] != 'system')
+									this.messages.unshift(this.messageFromTemplate('system', languages));
+						}
+					} 
+					catch {}
+				}
 
 				clearMessages(keep){
 					try {
@@ -287,19 +288,26 @@
 						params.model = 'gpt-3.5-turbo';
 					params.messages = this.messages;
 
-					const response = await fetch("https://api.openai.com/v1/chat/completions", {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'Authorization': 'Bearer '+this.key
-						},
-						body: JSON.stringify(params)
-					});
-
-					const reply = await response.json();
-
 					try {
-						let message = reply['choices'][0]['message']
+
+						const response = await fetch("https://api.openai.com/v1/chat/completions", {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'Authorization': 'Bearer '+this.key
+							},
+							body: JSON.stringify(params)
+						});
+
+						const reply = await response.json();
+
+						if(typeof(reply) === 'undefined'){
+							let err = "Error: AI did not reply:(";
+							log(err);
+							say.say(err);
+						}
+						let message = reply['choices'][0]['message'];
+
 						this.messages.push(message);
 						this.keepLastMessages();
 						this.tokens = reply['usage']['total_tokens'];
@@ -308,19 +316,25 @@
 						show(message['content']);
 						page = this.messages.length-1;
 						say.say(message['content']);
-						} 
+					} 
 					catch (e) {
-						log(`${e.name} <br/>`);
-						log(`${e.message}<br/>${e.lineNumber}<br/><br/><br/>${e.stack}`);
+						console.log(l);
+						log(l);
+						//log(`${e.name} <br/>`);log(`${e.message}`);
 						
-						if('error' in reply && 'message' in reply['error']){
-							message = reply['error']['message'];
-							show(message)
-							say.say(message)
-						} else { 
-							log(e); // name, message, stack
-							say.say(`Error ${e.name}`)
-						}}	
+						try{
+							if('error' in reply){
+								let error = reply['error'];
+								show(error)
+								say.say(error)
+							} else { 
+								log(`${e.name} <br/>${e.message}`);
+							}
+						}	 
+						catch (f) {
+							log(`${f.name} <br/>${f.message}`);
+						}
+					}
 				}
 			}
 		
@@ -407,7 +421,7 @@
 						if (event.data.size > 0)
 							this.recordedChunks.push(event.data);
 					});
-					
+
 					this.recordedChunks = [];
 					this.mediaRecorder.start();
 
@@ -562,9 +576,13 @@
 				catch (e) {
 					//log("Your phone can not speak:(")
 				}
-				content.innerHTML  = text('guide');
-				if(detectiPhone())
-					content.innerHTML  += text('iPhoneFix');
+				if(ai.key == null)
+					content.innerHTML = "The ?key is not provided. It must be in address as ?key=<paste your key>\nIf you don't have it, get it on <a href=''></a>"
+				else {
+					content.innerHTML  = text('guide');
+					if(detectiPhone())
+						content.innerHTML += text('iPhoneFix');
+				}
 
 				document.addEventListener('touchstart', handleTouchStart, false);        
 				document.addEventListener('touchend', handleTouchEnd, false);
@@ -593,7 +611,6 @@
 						window.speechSynthesis.resume();
 					} 
 				});
-
 
 			} catch (e) { }
 		}

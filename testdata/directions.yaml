@@ -1,0 +1,39 @@
+- "How do I get to downtown from here?"
+- "What's the fastest way to get to the airport?"
+- "Is there a train or bus that goes to the shopping center?"
+- "Directions to the nearest subway station, please."
+- "Can you guide me to the closest bus stop to the stadium?"
+
+
+{"query": "Hey AI, how do I get to work?"}
+{"query": "What's the fastest route to the office?"}
+{"query": "AI, give me walking directions to the train station."}
+{"query": "Can you provide me with public transportation directions to the downtown area?"}
+{"query": "What's the distance and directions to the airport from my location?"}
+
+- query: "Can you give me directions to the nearest subway station?"
+  type: "public transportation"
+  mode: "walking"
+  
+- query: "What bus should I take to get to the nearest hospital?"
+  type: "public transportation"
+  mode: "bus"
+  
+- query: "How do I get to the airport by car?"
+  type: "driving"
+  mode: "car"
+  
+- query: "Can I take a bike to get to the park?"
+  type: "biking"
+  mode: "bike"
+  
+- query: "Is it faster to walk or take the subway to get to the theater?"
+  type: "public transportation"
+  mode: "subway"
+  preference: "fastest"
+
+- query: "What's the most eco-friendly way to get to the mall?"
+  type: "public transportation"
+  mode: "bus"
+  preference: "eco-friendly"
+

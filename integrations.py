@@ -48,7 +48,7 @@ class Google:
 		return True
 
 	def populateTestMailbox(self):
-		mails = yaml.safe_load(open('logs/in.yaml', 'r'))
+		#mails = yaml.safe_load(open('logs/in.yaml', 'r'))
 		to = "Petr Meissner <petr@sl8.ch>"
 		mails = [{'Contact': "Mark", 'Subject':"Design Approval Request"}]
 		if( input() == 'yes'):
@@ -230,6 +230,102 @@ class Logger:
 			Logger.logs.write(text+'\n') # TODO concurrent use
 		except Exception as e:
 			print('Logging failed: '+e)
+
+	def logDataStructure(self, dataStructure, filename="output"):
+		dataStructure = dataStructure.strip()
+		try:
+			if dataStructure[0] == "{":
+				print('JSON')
+				try:
+					json = json.loads(dataStructure)
+					print(json)
+				except:
+					print("not valid")
+					print(dataStructure)
+			elif re.match(r"\w+:", dataStructure):
+				try:
+					print('YAML')
+					print(dataStructure)
+					json = yaml.load(response, Loader=yaml.FullLoader)
+					print(json)
+					#re.compile(r"(```.*?```)", re.DOTALL).sub("Example code.\n", text)
+				except:
+					print("not valid")
+					print(dataStructure)
+			else:
+				print("TXT")
+				for line in dataStructure.splitlines():
+					print("- "+ line)
+
+		except Exception as e:
+			print(e)
+
+class Convertor:
+	def yaml2json(self, text, defaultTag=None):
+		json = {}
+		lastIdent = defaultTag
+		for line in text.splitlines():
+			try:
+				line = line.strip()
+				#regex = r"^\w+\s?\w*:"
+				regex = r"^[\s\"\']*\w+[\s\"\']*:"
+				#regex = re.compile(r"^[\s\"\']*\w+[\s\"\']*:", re.DOTALL)
+				if re.match(regex, line):
+					try:
+						yam = line.split(":", 1)
+						ident = yam[0].strip().lower()
+						ident = re.compile(r"['\"\s]", re.DOTALL).sub('', ident)
+						json[ident] = yam[1].strip()
+						lastIdent = ident
+					except Exception as e:
+						print(e)
+				# pass multilines to preivous ident
+				elif lastIdent: 
+					json[lastIdent] += "\n"+line
+			except Exception as e:
+				print(e)
+		return json if json else None
+
+
+	def translation(self, text, defaultTag=None):
+		json = self.yaml2json(text, defaultTag)
+		output = json['translation']+"\n"
+		output += f">>> from: {json['from']}, to: {json['to']} <<<"
+		return output
+
+
+"""	def toJSON(self, text):
+		try:
+			yam = self.jsonize(text)
+			son = self.yamlize(text)
+			lines = ["- "+line for line in dataStructure.splitlines() if line.strip()]
+
+			return 
+		except Exception as e:
+			print(e)
+			return None
+
+	def yamlize(self, text):
+		yaml_lines = []
+		for line in text.splitlines():
+			try:
+				yaml.safe_load(line)
+				yaml_lines.append(line)
+			except yaml.YAMLError:
+				pass
+		return yaml.safe_load('\n'.join(yaml_lines)) if yaml_lines else None
+
+	def jsonize(text):
+		json_lines = []
+		for line in text.splitlines():
+			try:
+				json.loads(line)
+				json_lines.append(line)
+			except json.JSONDecodeError:
+				pass
+		return json.loads('{%s}' % ', '.join(json_lines)) if json_lines else None"""
+		
+
 
 class Stats:
 	stats = None

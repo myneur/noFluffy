@@ -1,0 +1,28 @@
+- q: Excuse me, how do I get to the nearest subway station?
+  format: 
+    - Translation: 5
+    - From: 2
+    - To: 2
+#- q: Could you tell me where the landmark Tower Bridge is located? 
+#- q: Can you provide me help to navigate to Sevilla ? 
+#- q: What's the fastest way to get to Times Square? 
+#- q: Mind showing me on the map where I can find the bus stop for Madrid's City Tour bus? 
+#- q: Hello there!/Hi, sorry do you speak English? I am trying to find my hotel but keep getting lost(!). 
+#- q: Excuse me, my phone has no GSP service, would you happen to know the way tothe railway museum 
+#- q: I'm having trouble finding the local currency exchange-shop. Could you guide me towards Madrid airport money exchange district? 
+#- q: Can you give me recommendations for how to get from downtown Fira to Mesa Montana Pathways 
+#- q:  Is Uber available in the city of Dubrovnik ? 
+#- q:  Can you give me an exclusively rail-based ticket through Slovak Republic?
+#- q: Take exit fifty-one on the highway and follow the motorway to the center of Barcelona.
+#- q: "Excuse me, can you tell me how to get to the nearest subway station? I am a tourist and I am not familiar with the area."
+#- q: "Do you know the way to the city center? I am visiting from out of town andI seem to have lost my map."
+#- q: "Could you please give me directions to the nearest tourist attraction? I am new to the city and would like to explore some of the must-see spots."
+#- q: "I'm a bit lost, can you tell me the quickest way to reach the beach? I'm here on vacation and I don't want to waste any time wandering around."
+#- q: "Hi there, can you help me find my hotel? I'm not sure where it's located and I need to drop off my luggage before exploring the city."
+#- q: A la izquierda, siga por esa calle recto, encontrará una oficina de turismo en chinoesa después de ca500 
+#- q: Surt la sortida cinguanta-un de la autopista i segueixes l’autovia cap al centre de Barcelona   
+#- q: "On dit que c'est un endroit incroyable, surtout pour les amoureux de l'architecture. Pour y aller, allez tout droit et tournez à droite au premier carrefour. Vous ne pouvez pas le manquer!" 
+#- q: "Ich denke, dass es einen Besuch wert ist. Es ist ein historischer Ort mit einer faszinierenden Geschichte. Gehen Sie einfach die Straße hinunter und biegen Sie an der Kreuzung links ab."
+#- q: "Lo siento, no estoy seguro. Soy nuevo en la zona. Por favor, pregunte a alguien más o intente buscar en un mapa."
+#- q: "Het is een prachtige plek met veel culturele waarde. Je moet naar het westen langs de rivier lopen en dan bij de brug linksaf slaan. Het is ongeveer 10 minuten lopen."
+#- q: "Je pense que c'est l'un des joyaux cachés de la ville, un peu difficile à trouver mais ça vaut le coup. Il vous suffit de prendre le tramway 12 et descendre à l'arrêt du jardin public, puis marcher le long de la rue principale."

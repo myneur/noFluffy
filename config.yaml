@@ -1,4 +1,33 @@
 modes: # default is 1st, underscored are hidden used by system
+    translator:
+        goal: Efficient interpreter of all languages without comments.
+        version: 0.3
+        messages:
+            system: |
+                You are an accurate translator who does not change meaning of the sentences.
+                You only translate into the given language. 
+                No comments.
+                If not specified, translate to the other language from ({}).
+            user: |
+                Give the translation in the following YAML formatting:
+                From: "language you translated from"
+                To: "language you transalted to"
+                Translation: "exact translation"
+                
+                Consider text all up to '---'
+
+                Text: {}
+
+                --- 
+
+                Translation:
+            remember: 0
+        model_params:
+            temperature: 0
+            logit_bias: {'From': 1, 'To': 1, 'Translation': 1, 'Text:': 0}
+        pipeline: translation
+        defaultTag: translation
+#       TODO: confused with YAML-like input (e. g. starting with '-' > preprocess  )
     concise:
         goal: Answer general questions with easy to read replies
         version: 0.2
@@ -21,30 +50,7 @@ modes: # default is 1st, underscored are hidden used by system
             user: "{}"
             remember: 6
         model_params:
-            temperature: 2
-    translator:
-        goal: Efficient interpreter who translates from one language to another without comments.
-        version: 0.2
-        messages:
-            system: |
-                You are an accurate translator.
-                - Translate between last 2 languages used.
-                - If there was just 1 language used previously, translate to the other language from ({}).
-                - No notes, explanations.
-                - Do not mention what language did you translate to. 
-                - Do not repeat the request for the translation.
-            user: |
-                Example:
-                Text: Translate to French. Nice to meet you. 
-                Translation: Le français est une très belle langue.
-
-                Translate the following text.
-
-                Text:{}
-                Translation:
-            remember: 2
-        model_params:
-            temperature: 0
+            temperature: 1
     writer:
         goal: Write text exactly as requested with corrected grammar
         version: 0.2
@@ -58,6 +64,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Text:{}
 
                 Remove starting request to write or prepare text or mail and repeat the rest with corrected typos as is.
+            remember: 1
         model_params:
             temperature: 0
     messenger:
@@ -124,7 +131,7 @@ modes: # default is 1st, underscored are hidden used by system
             system: Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích.
             user: "{}"
         model_params:
-            temperature: 1.5
+            temperature: 0.8
     _classifier:
         goal: find out if text contains request for an action and identify it
         version: 0.2
@@ -170,6 +177,7 @@ modes: # default is 1st, underscored are hidden used by system
 
                 Text: {}
                 Action: 
+            remember: 0
         model_params:
             temperature: 0
             max_tokens: 512

@@ -27,6 +27,7 @@ class Chat:
 		self.google = integrations.Google()
 
 		self.logger = integrations.Logger()
+		self.convertor = integrations.Convertor()
 
 		self.classifier = None
 		self.minChars = 5
@@ -95,6 +96,14 @@ class Chat:
 			# reload config
 			elif '<' == prompt:
 				self.ai.loadConfig()
+				self.ai.clearMessages()
+
+			# last response to data structure
+			elif '>' == prompt:
+				try:
+					print (self.logger.yaml2json(self.ai.messages[-1]['content']))
+				except Exception as e:
+					print(e)
 
 			# toggle functions/classifier
 			elif 'f' == prompt:
@@ -180,7 +189,7 @@ class Chat:
 			if len(firstSentences)<200:
 				firstSentences = question[:200]
 			
-			action = self.ask(firstSentences, self.classifier, rememberMessages=False) 
+			action = self.ask(firstSentences, self.classifier) 
 
 			# run prompt corresponding with the action that was classified
 			if action:
@@ -224,7 +233,7 @@ class Chat:
 
 			elif 'write' == action:
 				print('…writing text')
-				response = self.ask(question, AI('_classifier'), rememberMessages=1)
+				response = self.ask(question, AI('_classifier'))
 
 				response = "Here's the text:\n\n" + response + "\n\nDo you want me to send it?"
 
@@ -275,25 +284,49 @@ class Chat:
 
 	def reply(self, response, say=True):
 		if response:
+			"""json = self.logger.yamlize(response)
+			if(json):
+				response = json"""
 			print(self.enhance4screen(response))			
 			if say:
+				"""try: 
+					json = self.logger.yamlize(response)
+					if 'Translation' in json: 
+						response = json['Translation']
+					elif 'translation' in json: 
+						response = json['translation']
+				except:
+					pass"""
+		
 				self.say.say(response)
 			self.guide()
 
-	def ask(self, question=None, ai=None, rememberMessages=True):
+	def ask(self, question=None, ai=None):
 		if question and len(question) < self.minChars:
 			return question + ' is not a question'
 		
-		if rememberMessages:
-			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
-		
 		if ai == None:
 			ai = self.ai
+			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
 
-		response = ai.chat(question, rememberMessages)
+		response = ai.chat(question)
 		
 		if 'choices' in response:
-			return response['choices'][0]['message']['content']
+			reply = response['choices'][0]['message']['content']
+			#return reply
+			try:
+				mode = AI.modes[self.ai.mode]
+
+				pipeline = mode['pipeline'] if ('pipeline' in mode) else None
+				defaultTag = mode['defaultTag'] if ('defaultTag' in mode) else None
+				if pipeline:
+					output = getattr(self.convertor, pipeline)(reply, defaultTag) 
+					#output = self.convertor.yaml2json(reply)
+					return output
+			except Exception as e:
+				print(e)
+
+			return reply
 		else:
 			if 'error' in response:
 				mess = str(response['error'])
@@ -337,27 +370,29 @@ class AI:
 		self.tokensUsed = 0
 
 		self.stats = integrations.Stats()
+		
+		# alternatively openai.api_key = os.environ.get('OPENAI_KEY')
+		if not AI.key:
+			with open('../private.key', 'r') as key:	# TODO read just once
+				AI.key = key.read().strip()
+		openai.api_key =  AI.key
 
-		self.loadConfig()
+		if not AI.conf:
+			self.loadConfig()
 
 		self.mode = mode if mode else list(AI.modes.keys())[0]
-
-		self.clearMessages()
-
-		#openai.api_key = os.environ.get('OPENAI_KEY')
-		with open('../private.key', 'r') as key:	# TODO read just once
-			openai.api_key =  key.read().strip()
-
-	def loadConfig(self):
-		if not AI.conf:
-			with open('config.yaml', 'r') as file:
-				AI.conf = yaml.safe_load(file)
-			AI.modes = AI.conf['modes']
 
 		# TODO should be in user storage instead of conf
 		self.languages = AI.conf['languages']
 		self.me = AI.conf['me']
-			
+
+		self.clearMessages()
+		
+
+	def loadConfig(self):
+		with open('config.yaml', 'r') as file:
+			AI.conf = yaml.safe_load(file)
+		AI.modes = AI.conf['modes']
 
 	def switchModel(self):
 		self.model = (self.model+1)%len(self.models)
@@ -376,8 +411,8 @@ class AI:
 			return None
 		return transcript
 
-	def chat(self, question, rememberMessages=True): # remember # of messages of all if True
-		# standard question
+	def chat(self, question): 
+		self.keepLastMessages()
 
 		messages = self.messages
 		if(question):
@@ -389,12 +424,18 @@ class AI:
 			params = {}
 		params['model'] = AI.models[self.model]
 		params['messages'] = messages
+
+
+		if 'logit_bias' in params: 	# TODO words must be converted to integer tokens
+			params.pop('logit_bias')
 			
 		t = time.time()
 		try:
 			
 			# TODO retry with openai.ChatCompletion.create(**params)
+			
 			response = openai.ChatCompletion.create(**params)
+
 			t = time.time()-t
 			usage = response['usage']
 			usage['time'] = t
@@ -406,21 +447,10 @@ class AI:
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
 			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
 		
-		# store messages when we are in standard chain
-		if rememberMessages: 
-			messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))
-			
-			if type(rememberMessages) in [int]:
-				self.messages = messages[rememberMessages:]
-			else:
-				self.messages = messages
-			
-			self.tokensUsed = 0
-			for message in messages:
-				self.tokensUsed += self.countTokens(message['content'])
-			
-			#print("\nwords/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2))+"\n")
-			self.tokensUsed = response['usage']['total_tokens']
+		messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))
+		
+		self.messages = messages
+		self.tokensUsed = response['usage']['total_tokens']
 
 		return response
 
@@ -440,37 +470,40 @@ class AI:
 		
 		return {'role': role, 'content': message };
 
-	def keepLastMessages(self):
-		return # TODO yet to be finished by refactoring loadConf
+	def keepLastMessages(self, keep=None):
 		try:
-			template = AI.modes[self.mode]['messages'];
-			keep = template['remember']
-			messages = self.messages
-			if keep < len(messages):
-				messages = messages[len(messages)-keep:]
-				if 'system' in template:
-					messages.insert(0, self.messageFromTemplate('system', [", ".join(self.languages)] ))
+			if not keep:
+				keep = AI.modes[self.mode]['messages']['remember']
+
+			self.clearMessages(keep)
 		except:
 			pass
-		print (messages) 
 		# self.messages = messages
 
 	def clearMessages(self, keep=0):
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
-		if keep != 0: 
-			if keep < len(self.messages):
-				try:
-					if keep > 0:
-						self.messages = self.messages[0:1] + self.messages[-keep:]
-					else:
-						if len(self.messages)>1:
-							self.messages.pop()
-				except IndexError:
-					self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
-		else:
-			self.tokensUsed = 0
-			self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
+		if keep <= len(self.messages):
+			try:
+				# keep last messages
+				if keep > 0:
+					self.messages = self.messages[len(self.messages)-keep:]				
+				# remove last message 
+				elif keep < 0:
+					if len(self.messages) > 1:
+						self.messages.pop() # TODO allow more messages and self.countTokens(last message)
+				#erase all
+				else:
+					self.tokensUsed = 0
+					self.messages = []
 
+				# TODO count tokens
+			except IndexError:
+				pass
+		try:
+			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
+				self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])] + self.messages;
+		except Excpetion as e:
+			print(e)
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append(self.messageFromTemplate('user', question))
@@ -599,6 +632,10 @@ class Synthesizer:
 		
 		# remove code blocks
 		text = re.compile(r"(```.*?```)", re.DOTALL).sub("Example code.\n", text)
+
+		# remove what my pipelines commented out
+		text = re.compile(r"(>>>.*?<<<)", re.DOTALL).sub("", text)
+		
 		
 		# keep just first lines of table
 		#text = re.compile(r"^\|.*?\|$", re.DOTALL|re.MULTILINE).sub("Example table.\n", text) # matches lines despite MULTLINE
