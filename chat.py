@@ -176,6 +176,7 @@ class Chat:
 			if len(firstSentences)<200:
 				firstSentences = question[:200]
 			
+			#classifier = AI('_classifier')
 			action = self.ask(firstSentences, mode='_classifier', rememberMessages=False) 
 
 			# run prompt corresponding with the action that was classified
@@ -319,11 +320,12 @@ class Chat:
 
 class AI:
 	modes = None
+	conf = None
 	models = ['gpt-3.5-turbo', 'gpt-4']
 
-	def __init__(self, model=0):
+	def __init__(self, mode='assistant', model=0):
 		self.model = model
-		self.mode = "assistant"
+		self.mode = mode
 		self.messages = []
 		self.tokensUsed = 0
 
@@ -335,6 +337,17 @@ class AI:
 		#openai.api_key = os.environ.get('OPENAI_KEY')
 		with open('../private.key', 'r') as key:
 			openai.api_key =  key.read().strip()
+
+	def loadConfig(self):
+		if not AI.conf:
+			with open('config.yaml', 'r') as file:
+				AI.conf = yaml.safe_load(file)
+			AI.modes = AI.conf['modes']
+
+		# TODO should be in user storage instead of conf
+		self.languages = AI.conf['languages']
+		self.me = AI.conf['me']
+			
 
 	def switchModel(self):
 		self.model = (self.model+1)%len(self.models)
@@ -359,25 +372,22 @@ class AI:
 			return None
 		return transcript
 
-	def chat(self, question=None, mode=None, rememberMessages=True): # remember # of messages of all if True
+	def chat(self, question, mode=None, rememberMessages=True): # remember # of messages of all if True
 		# standard question
 
 		if not mode: 
 			mode = self.mode
 			messages = self.messages
+			realMode = None
 		# one time ask like for classification
 		else: 
-			messages = AI.modes[mode]['messages']
+			realMode = self.mode
+			self.mode = mode
+			messages = [self.messageFromTemplate('system', question)]	 # TODO this should be done in the new instance, not by this ping-poing
 
-		if(question): 				
-			messages.append({'role': 'user', 'content': AI.modes[mode]['template'].format(question)})
+		if(question):
+			messages.append(self.messageFromTemplate('user', question))
 
-		# if no question, ask the last one again
-		elif messages and messages[-1]['role'] == 'assistant': 
-			messages.pop(-1)
-		else:
-			return None
-		
 		
 		if 'model_params' in AI.modes[self.mode]:
 			params = AI.modes[self.mode]['model_params'].copy()
@@ -385,7 +395,6 @@ class AI:
 			params = {}
 		params['model'] = AI.models[self.model]
 		params['messages'] = messages
-
 			
 		t = time.time()
 		try:
@@ -405,7 +414,7 @@ class AI:
 		
 		# store messages when we are in standard chain
 		if rememberMessages: 
-			messages.append({'role': "assistant", 'content': response['choices'][0]['message']['content']})
+			messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))
 			
 			if type(rememberMessages) in [int]:
 				self.messages = messages[rememberMessages:]
@@ -419,19 +428,26 @@ class AI:
 			#print("\nwords/tokens: " +str(round(self.tokensUsed / int(response['usage']['total_tokens']), 2))+"\n")
 			self.tokensUsed = response['usage']['total_tokens']
 
+		if realMode: 
+			self.mode = realMode # TODO this should be done in the new instance, not by this ping-poing
+
 		return response
 
-	def messageFromTemplate(self, role, params): # TODO yet to be finished by refactoring loadConf
-		try:
-			template = AI.modes[self.mode]['messages']
-			if params:
-				params = template['system'].format(*params)
-			else:
-				params = template;
-		except:
-			pass
+	def messageFromTemplate(self, role, content): # TODO yet to be finished by refactoring loadConf
+		templates = AI.modes[self.mode]['messages']
 		
-		return {'role': role, 'content': text };
+		if role in templates:
+			if content:
+				if isinstance(content, list):
+					message = templates[role].format(*content)
+				else: 
+					message = templates[role].format(content)
+			else:
+				message = template[role].copy()
+		else:
+			message = content
+		
+		return {'role': role, 'content': message };
 
 	def keepLastMessages(self):
 		return # TODO yet to be finished by refactoring loadConf
@@ -442,7 +458,7 @@ class AI:
 			if keep < len(messages):
 				messages = messages[len(messages)-keep:]
 				if 'system' in template:
-					messages.insert(0, messageFromTemplate('system', [", ".join(self.languages)] ))
+					messages.insert(0, self.messageFromTemplate('system', [", ".join(self.languages)] ))
 		except:
 			pass
 		print (messages) 
@@ -459,14 +475,13 @@ class AI:
 						if len(self.messages)>1:
 							self.messages.pop()
 				except IndexError:
-					self.messages = AI.modes[self.mode]['messages']	
+					self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
 		else:
-			self.messages = AI.modes[self.mode]['messages'].copy()
-		
+			self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])]
 
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
-		self.messages.append({'role': 'user', 'content': question})
+		self.messages.append(self.messageFromTemplate('user', question))
 		response = openai.ChatCompletion.create(
 			model = AI.models[self.model],
 			messages = self.messages,
@@ -511,27 +526,6 @@ class AI:
 		return {
 			'mail': self.me['mail'],
 			'message': self.messages[-1]['content']}
-
-	def loadConfig(self):
-		with open('config.yaml', 'r') as file:
-			conf = yaml.safe_load(file)
-		
-		self.languages = conf['languages']
-		self.me = conf['me']
-		modes = conf['modes']
-
-		# YAML to OpenAI message format
-		for m in modes:
-			# TODO move languages and user info into user data 
-			params = [", ".join(self.languages)]
-			
-			messages = modes[m]['messages']
-			modes[m]['messages'] = [{'role': 'system', 'content': messages['system'].format(*params)}]
-			modes[m]['template'] = messages['user']
-		AI.modes = modes
-
-	def asChatMessage(self, role, content):
-		return {'role': role, 'content': content}
 
 class Recorder:
 	def __init__(self):

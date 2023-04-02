@@ -120,7 +120,7 @@
 			<option value=0.8>0.8×</option>
 		</select>
 	</div>
-	<div contenteditable="true" id="content"></div>
+	<div contenteditable="false" id="content"></div>
 	<div id="buttons-container">
 		<button id="clear">Clear</button>
 		<button id="listen">Listen</button>
@@ -155,12 +155,17 @@
 			if(lang in _texts[id])
 				return _texts[id][lang];
 			else
-				return _texts[id]['en'];
+				try { return _texts[id]['en'];}
+				catch { return id }
 		}
 
-		var page = 0;
+		var page = 0; 			// current page
 
-		var wakelock = null;
+		var wakelock = null; 	// prevent phone from sleeping
+
+		var touche = [0, 0];	// to detect swipe
+		var pressTimer;			// to detect long touche
+		var unlocked = false;	// iPhone speach confirmed
 		
 		class AI {
 			constructor(){
@@ -171,7 +176,7 @@
 				this.modes = {
 					'Concise factual': {pipeline: function(text){ai.chat(text)}, params: {}, messages: {
 						system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
-					'GPT4: Concise factual': {pipeline: this.chat, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
+					'GPT4: Concise factual': {pipeline: function(text){ai.chat(text)}, params: {'model': 'gpt-4', 'temperature': 0.5}, messages: {
 						system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
 					'Translator': {pipeline: function(text){ai.chat(text)},  params: {'model': 'gpt-4', 'temperature': 0}, messages: {
 						system: 
@@ -202,14 +207,9 @@
 					}
 
 					
-
 				start(){
-					try {
-						this.messages = [this.messageFromTemplate('system', languages)];
-						} 
-					catch { 
-						this.messages = []; 
-						}
+					try { this.messages = [this.messageFromTemplate('system', languages)];} 
+					catch { this.messages = []; }
 				}
 
 				messageFromTemplate(role, text){
@@ -373,6 +373,7 @@
 		}
 
 		class iPhoneRecorder extends Recorder {
+			
 			rec(){				 
 				super.rec();
 				this.mediaRecorder = new webkitSpeechRecognition();
@@ -389,14 +390,11 @@
 			constructor(){
 				super();
 
-				this.recordedAudio = null;
-				
-				this.mediaStream;
+				this.recordedAudio = null;	
 				this.recordedChunks = [];
 
 				this.process = this.processAudio;
-				this.label = "…recognizing"
-
+				this.label = "…recognizing";
 			}
 	  
 			async rec() {
@@ -405,16 +403,17 @@
 				try {
 					this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 					this.mediaRecorder = new MediaRecorder(this.mediaStream);
-					this.recordedChunks = [];
-					this.mediaRecorder.start();
-
 					this.mediaRecorder.addEventListener('dataavailable', event => {
 						if (event.data.size > 0)
 							this.recordedChunks.push(event.data);
 					});
-					return 'STOP & Answer!'
+					
+					this.recordedChunks = [];
+					this.mediaRecorder.start();
 
-				} catch (e) {
+					return 'STOP & Answer!'
+				} 
+				catch (e) {
 					log(e);
 					say.say(`Error while recording: ${e.name})`);
 					return `Error while recording: ${e.name})`
@@ -534,53 +533,75 @@
 			return /iPhone/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent);
 		}
 
-		if(detectiPhone())
-			var recorder = new iPhoneRecorder();
-		else
-			var recorder = new OpenAIRecorder();
-			
+		var recorder = detectiPhone() ? new iPhoneRecorder() : new OpenAIRecorder();
 		var say = new Synthesizer();
-
 		var ai = new AI();
 
-		try { setupUI() } 
-		catch (e) { log(e) }
-
-
 		function setupUI() {
-			// setup modes from conf
-			for(role in ai.modes){
-				let option = document.createElement('option');
-				option.textContent = role;
-				option.value = role;
-				mode.appendChild(option);
-			}
-
-			// read cookies
-			Array.from(document.getElementsByTagName('select')).forEach(dropDown => {
-				let id = dropDown.getAttribute('id');
-				if (localStorage.getItem(id)){
-					dropDown.value = localStorage.getItem(id);
+			try {
+				// setup modes from conf
+				for(role in ai.modes){
+					let option = document.createElement('option');
+					option.textContent = role;
+					option.value = role;
+					mode.appendChild(option);
 				}
-			});
-			clear();
 
-			// setup voice synthesizer
-			say.getBestVoices();
-			try { window.speechSynthesis.addEventListener('voiceschanged', function(){ say.getBestVoices()}) } 
-			catch (e) {
-				//log("Your phone can not speak:(")
-			}
-			content.innerHTML  = text('guide');
-			if(detectiPhone())
-				content.innerHTML  += text('iPhoneFix');
+				// read cookies
+				Array.from(document.getElementsByTagName('select')).forEach(dropDown => {
+					let id = dropDown.getAttribute('id');
+					if (localStorage.getItem(id)){
+						dropDown.value = localStorage.getItem(id);
+					}
+				});
+				clear();
+
+				// setup voice synthesizer
+				say.getBestVoices();
+				try { window.speechSynthesis.addEventListener('voiceschanged', function(){ say.getBestVoices()}) } 
+				catch (e) {
+					//log("Your phone can not speak:(")
+				}
+				content.innerHTML  = text('guide');
+				if(detectiPhone())
+					content.innerHTML  += text('iPhoneFix');
+
+				document.addEventListener('touchstart', handleTouchStart, false);        
+				document.addEventListener('touchend', handleTouchEnd, false);
+
+				longTouch(shareButton, longShare);
+				longTouch(recordButton, longListen);
+				longTouch(clearConversation, clearOne);
+
+				recordButton.addEventListener("click", function(){ 
+					if(!unlocked && detectiPhone()){
+						say.say(text('iPhoneAlert'), function(){ recordButton.textContent = recorder.toggleRec()});
+						unlocked = true;
+						return
+					}
+					unlocked = true;
+					recordButton.textContent = recorder.toggleRec();
+					});
+				clearConversation.addEventListener("click", clear);
+				mode.addEventListener("change", clear);
+				shareButton.addEventListener("click", share);
+				speed.addEventListener("change", testSpeed);
+
+				document.addEventListener("visibilitychange", function() {
+					if (document.hidden) {	// lost focus
+						//window.speechSynthesis.pause();
+						window.speechSynthesis.resume();
+					} 
+				});
+
+
+			} catch (e) { }
 		}
 
+		setupUI();
 
-		document.addEventListener('touchstart', handleTouchStart, false);        
-		document.addEventListener('touchend', handleTouchEnd, false);
 
-		var touche = [0, 0];
+		
 		function handleTouchStart(evt) {                                         
 			touche = [evt.touches[0].clientX, evt.touches[0].clientY];
 		}
@@ -616,11 +637,7 @@
 				show(ai.messages[page]['content']);
 		}
 
-		var pressTimer;
-		longTouch(shareButton, longShare);
-		longTouch(recordButton, longListen);
-		longTouch(clearConversation, clearOne);
-
+		
 		function longTouch(element, action){
 			element.addEventListener('touchstart', function(event){ 
 					pressTimer = performance.now(); 
@@ -677,22 +694,6 @@
 			shareButton.textContent = navigator.share ? 'Share' : 'Copy';
 		}
 
-		var unlocked = false;
-		recordButton.addEventListener("click", function(){ 
-			if(!unlocked && detectiPhone()){
-				say.say(text('iPhoneAlert'), function(){ recordButton.textContent = recorder.toggleRec()});
-				unlocked = true;
-				return
-			}
-			unlocked = true;
-			recordButton.textContent = recorder.toggleRec();
-			});
-		clearConversation.addEventListener("click", clear);
-		mode.addEventListener("change", clear);
-		shareButton.addEventListener("click", share);
-		speed.addEventListener("change", testSpeed);
-
-
 		function enhance4screen(text){
 			text = text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 			let pattern = /^(?:\s*)```([\s\S]*?)```\s*$/gm;
@@ -701,13 +702,6 @@
 			return text
 		}
 		
-		document.addEventListener("visibilitychange", function() {
-			if (document.hidden) {	// lost focus
-				//window.speechSynthesis.pause();
-				window.speechSynthesis.resume();
-			} 
-		});
-
 		function testSpeed(){
 			localStorage.setItem('speed', this.value);
 			let sel = speed.options[speed.selectedIndex].innerHTML;
