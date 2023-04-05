@@ -180,24 +180,38 @@
 						system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."}},
 					'Translator': {pipeline: function(text){ai.chat(text)},  params: {'temperature': 0.1}, messages: {
 						system: 
-							`You are an accurate translator.
-							- Translate between last 2 languages used.
-							- If there was just 1 language used previously, translate to the other language from ({}).
-							- No notes, explanations.
-							- Do not mention what language did you translate to. 
-							- Do not repeat the request for the translation.
+							`You are an accurate translator who does not change meaning of the sentences.
+				            You only translate into the given language. 
+				            No comments.
+				            If not specified, translate to the other language from ({}).
 							`,	
 						user:
-							`Example:
-							Text: Translate to French. Nice to meet you. 
-							Translation: Le français est une très belle langue.
+							`Show just the translation of the following text without comments.
 
-							Translate the following text.
+							Consider the text everything up to '---'
 
-							Text:{}
-							Translation:`, 
+			                Text: {}
+
+			                --- 
+
+			                Translation:`, 
 						remember: 2
 						}},
+				    'tasker': {pipeline: function(text){ai.chat(text)}, params:{temperature: 0}, messages: {
+			            system: 
+			                `You are my colleague that keeps track of topics I suggest and helps me to prioritize them.
+			                You always reply just with the unnumbered list of topics i suggest.
+			                You keep each topic summarized into just few words. 
+			                Never repeat instructions.
+			                Do not add own suggestions, only keep track and update what I suggest.`,
+			            user: 
+			                `Inquiry:{}
+
+			                List the tasks and keep each of them summarized into few words.
+			                Write the most important words in bold formatting. 
+
+			                Concise list of tasks:`
+			        	}},
 					'Pohádkobot': {pipeline: function(text){ai.chat(text)}, params: {'temperature': 0.8}, messages: {
 						system: "Jsi pohádkový robot. Vyprávíš pohádky dětem na jejich přání. Pokud není řečeno jinak, vymysli pohádku přibližně o sedmi odstavcích."}},
 					'Repeat what I say': {pipeline: function(text){say.say(text)}}
@@ -577,7 +591,7 @@
 					//log("Your phone can not speak:(")
 				}
 				if(ai.key == null)
-					content.innerHTML = "The ?key is not provided. It must be in address as ?key=<paste your key>\nIf you don't have it, get it on <a href=''></a>"
+					content.innerHTML = "The ?key is not provided. It must be in address as ?key=<paste your key>\nIf you don't have it, get it on <a href='https://platform.openai.com/account/api-keys'>platform.openai.com/account/api-keys</a>"
 				else {
 					content.innerHTML  = text('guide');
 					if(detectiPhone())
@@ -715,7 +729,13 @@
 			text = text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 			let pattern = /^(?:\s*)```([\s\S]*?)```\s*$/gm;
 			text = text.replace(pattern, '\n<pre><code>' + '$1' + '</code></pre>\n');
+			
 			text = text.replace(/\n/g, "<br/>\n");
+
+			// rather convert markdown to html
+			//pattern = /(?:\s*)\*\*([\s\S]*?)\*\*\s*/gm;
+			//text = text.replace(pattern, '<strong>' + '$1' + '</strong>\n');
+			
 			return text
 		}
 		

@@ -13,6 +13,7 @@ import re
 import yaml
 
 from rich import print
+from rich.markdown import Markdown
 import markdown	
 
 import integrations
@@ -58,8 +59,12 @@ class Chat:
 			prompt = input()
 
 			# paste prompt from clipboard
-			if'p' == prompt:
+			if 'p' == prompt:
 				prompt = self.pasteClipboard()
+			"""elif 'r' == prompt: # retry voice reco (if it failed)
+				# might be handy also to play it
+				self.rec.recording = True;
+				#TBD"""
 
 			# ask by voice
 			if self.rec.recording and len(prompt) == 0:
@@ -149,7 +154,7 @@ class Chat:
 			# ask by text prompt
 			else:
 				# repeat last question
-				if 'r' == prompt: #repeating question
+				if 're' == prompt: #repeating question
 					self.run()
 				
 				# multiline input
@@ -345,7 +350,9 @@ class Chat:
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
 		#linelength = len(text.split('\n')[0])
 		linelength = 10
-		return re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
+		text = re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
+		#text = Markdown(text)
+		return text
 
 	def copy2clipboard(self, text):
 		print(text)
@@ -357,6 +364,16 @@ class Chat:
 		text = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8')
 		print(text)
 		return text
+
+class Controller:
+	def __init__(self):
+		self.convertor = Convertor()
+
+	def nurse(self, text):
+		return text
+
+	def translation(self, text):
+		return self.convertor.translation(text)
 
 class AI:
 	modes = None
@@ -502,7 +519,7 @@ class AI:
 		try:
 			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
 				self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])] + self.messages;
-		except Excpetion as e:
+		except Exception as e:
 			print(e)
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once

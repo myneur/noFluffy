@@ -1,4 +1,11 @@
 modes: # default is 1st, underscored are hidden used by system
+    concise:
+        goal: Answer general questions with easy to read replies
+        version: 0.2
+        messages:
+            system: You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice.
+            user: "{}"
+            remember: 6
     translator:
         goal: Efficient interpreter of all languages without comments.
         version: 0.3
@@ -14,7 +21,7 @@ modes: # default is 1st, underscored are hidden used by system
                 To: "language you transalted to"
                 Translation: "exact translation"
                 
-                Consider text all up to '---'
+                Consider the text all up to '---'
 
                 Text: {}
 
@@ -28,13 +35,6 @@ modes: # default is 1st, underscored are hidden used by system
         pipeline: translation
         defaultTag: translation
 #       TODO: confused with YAML-like input (e. g. starting with '-' > preprocess  )
-    concise:
-        goal: Answer general questions with easy to read replies
-        version: 0.2
-        messages:
-            system: You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice.
-            user: "{}"
-            remember: 6
     assistant:
         goal: Answer general questions
         version: 0.1
@@ -67,8 +67,44 @@ modes: # default is 1st, underscored are hidden used by system
             remember: 1
         model_params:
             temperature: 0
+    listmaker:
+        goal: |
+            I maintain a list of topics or tasks
+            - braindump your topics
+            - instruct to change them
+        version: 0.2
+        messages: 
+            system: |
+                You are my colleague that keeps track of topics I suggest and helps me to prioritize them.
+                You always reply just with the unnumbered list of topics i suggest.
+                You keep each topic summarized into just few words. 
+                Never repeat instructions.
+                Do not add own suggestions, only keep track and update what I suggest.
+                When no instructions given, create a new topic.
+            user: |
+                Inquiry:{}
+
+                List the tasks and keep each of them summarized into few words.
+                Write the most important words in bold formatting. 
+
+                Concise list of tasks:
+        model_params:
+            temperature: 0
+    _nurse:
+        goal: Help doctor do bueraucracy 
+        version: 0.1
+        messages: 
+            system: |
+                Jsi nemocniční sestra, která píše lékařské záznamy podle diagnózy doktorky psychiatrie v nemocnici, tak jak vyžadují zákony České republiky. 
+            user: |
+                Diagnóza v bodech:{}
+
+                Lékařský záznam s formalitami:
+#        pipeline: nurse
+        model_params:
+            temperature: 0
     messenger:
-        goal: transform instructions to communicate into YAML with Instructions, Recipient, Subject, Body
+        goal: transform mail request to YAML for API sending mails
 #           TODO indentify multiple recipients
         version: 0.2
         messages:
@@ -203,25 +239,30 @@ models:
     voice:
         whisper-1:
             limit: 25000000
-            pricePerMin: 0.006
+            price: 0.006
+            unit: $/min
     chat:
-        gpt-3.5-turbo: #chat
+        priceUnit: $/1000
+        gpt-3.5-turbo:
             limit: 4090
-            pricePer1000: 0.002
+            price: 0.002
         gpt-4:
             limit: 8192
-            pricePer1000: 
+            price: 
                 prompt: 0.03
                 completion: 0.06
+            rateLimit:
+                requests: 200
+                unit: 40k tokens/min
     _gpt-4-32k:
             limit: 32768
-            pricePer1000:
+            price:
                 prompt: 0.06
                 completion: 0.12
     completion:
         text-davinci-003: 
             limit: 2049
-            pricePer1000: 0.02
+            price: 0.02
 languages:
     - Czech
     - English
