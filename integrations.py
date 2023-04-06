@@ -261,29 +261,49 @@ class Logger:
 			print(e)
 
 class Convertor:
-	def yaml2json(self, text, defaultTag=None):
+
+	# convert a GPT output that is supposed to be YAML into a JSON while being tolerant to invalid lines and multilines
+	def yaml2json(self, text, defaultTag=None): 
 		json = {}
-		lastIdent = defaultTag
+		lastTag = defaultTag	# used when first lines are without any tag
+		listKey = '_list'
 		for line in text.splitlines():
+			line = line.strip()
+
+			# what to tolerate as id
+			# 1_2_words = r"^\w+\s?\w*:"
+			#1_2_words_w_quotes = r"^[\s\"\']*\w+[\s\"\']*:"
+			compound_words_n_quotes = r"^[\s\"\']*[\w\-_]+[\s\"\']*:"
+			blanks_n_quotes = r"['\"\s]"
+			list_item = r"\s*(-|\d+[\.)])\s*"
+
 			try:
-				line = line.strip()
-				#regex = r"^\w+\s?\w*:"
-				regex = r"^[\s\"\']*\w+[\s\"\']*:"
-				#regex = re.compile(r"^[\s\"\']*\w+[\s\"\']*:", re.DOTALL)
-				if re.match(regex, line):
-					try:
-						yam = line.split(":", 1)
-						ident = yam[0].strip().lower()
-						ident = re.compile(r"['\"\s]", re.DOTALL).sub('', ident)
-						json[ident] = yam[1].strip()
-						lastIdent = ident
-					except Exception as e:
-						print(e)
-				# pass multilines to preivous ident
-				elif lastIdent: 
-					json[lastIdent] += "\n"+line
+				# identifier
+				if re.match(compound_words_n_quotes, line):
+					yam = line.split(":", 1)
+					ident = yam[0].strip().lower()
+					ident = re.compile(blanks_n_quotes, re.DOTALL).sub('', ident)
+					json[ident] = yam[1].strip()
+					lastTag = ident
+
+				# list
+				elif re.match(list_item, line):
+					if listKey not in json:
+						json[listKey] = []
+					json[listKey].append(re.split(list_item, line, 1)[2])
+					lastTag = listKey
+
+				# multilines to be passed to preivous ident
+				elif lastTag: 
+					if lastTag not in json:
+						json[lastTag] = [line] if lastTag == listKey else line
+					else:
+						if lastTag == listKey:
+							json[lastTag][-1] += "\n"+line
+						else:	
+							json[lastTag] += "\n"+line
 			except Exception as e:
-				print(e)
+				print("Error" + e)
 		return json if json else None
 
 

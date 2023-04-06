@@ -1,4 +1,4 @@
-import openai
+from ai import AI
 
 import time
 
@@ -17,19 +17,26 @@ from rich.markdown import Markdown
 import markdown	
 
 import integrations
+from pipelines import Pipelines
 
 import traceback
+
+guide = """– 'Listen': ENTER to start & stop
+– 'Exit': ESC (+Enter)
+- 'Functions' are '{}', using {}
+– 'Clear' conversation: 0 """
 
 class Chat:
 	def __init__(self):
 		self.rec = Recorder()
 		self.say = Synthesizer()
 		self.ai = AI()
+		self.convertor = integrations.Convertor()
+		self.pipelines = Pipelines()
 		self.google = integrations.Google()
 
 		self.logger = integrations.Logger()
-		self.convertor = integrations.Convertor()
-
+		
 		self.classifier = None
 		self.minChars = 5
 
@@ -40,12 +47,7 @@ class Chat:
 
 		print("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
 
-		print("""– 'Listen': ENTER to start & stop
-– 'Exit': ESC (+Enter)
-- 'c'opy 'p'aste 
-- 'Functions' are '{}', using {}
-– 'Clear' conversation: 0 or # messages to keep """.format('on' if self.classifier else 'off', self.ai.models[self.ai.model]))
-
+		print(guide.format('on' if self.classifier else 'off', self.ai.models[self.ai.model]))
 
 		cnt = len(self.ai.messages)-1
 		if cnt:
@@ -106,7 +108,7 @@ class Chat:
 			# last response to data structure
 			elif '>' == prompt:
 				try:
-					print (self.logger.yaml2json(self.ai.messages[-1]['content']))
+					print (self.convertor.yaml2json(self.ai.messages[-1]['content']))
 				except Exception as e:
 					print(e)
 
@@ -180,9 +182,10 @@ class Chat:
 					self.say.stop()
 					self.rec.rec()
 
-	def run(self, question, voice_reco=False):
+	def run(self, question, voice_recognized=False): 
 		if not question:
-			print('repeating not implemented yet')
+			print('No input.')
+			self.say.say("No input given")
 			return None
 
 		if self.classifier:
@@ -196,73 +199,20 @@ class Chat:
 			
 			action = self.ask(firstSentences, self.classifier) 
 
-			# run prompt corresponding with the action that was classified
+			# be tolerant in detecting action
 			if action:
 				action = re.sub(r'[,.]', "", action.strip().lower())
 				if 'action:' in action:
 					action = action[7:].strip()
 
+			# ask if no action
 			if action in ('none', None):
 				print('…thinking\n')
 				response = self.ask(question)
 
-			elif 'communicate' == action:
-				print('…preparing message')
-				response = self.ask(question, AI('messenger'))
-				if response:
-					try:
-						data = yaml.load(response, Loader=yaml.FullLoader)
-						if 'Body' not in data:
-							data['Body'] = response
-					
-					except Exception as e:
-						print (e) 
-						data = {'Body':message, 'Subject': 'note to myself'}
-
-					if data['Body'] in ('this-conversation', 'last-message'):
-						data['Body'] = self.ai.messages[-1]['content']
-						data['Subject'] = "Our conversation"
-
-					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipient'], data['Service'], data['Subject'])
-
-					data['Recipient'] = self.ai.me['mail']
-					self.google.mailLast({'message':data['Body'], 'mail':self.ai.me['mail'], 'subject':data['Subject']})
-
-			elif 'inbox' == action:
-				print('…summarizing inbox')
-				time.sleep(3)
-				response = self.google.summarizeMailbox()
-
-			elif 'calendar' == action:
-				response = self.google.scheduleMeeting(question)
-
-			elif 'write' == action:
-				print('…writing text')
-				response = self.ask(question, AI('_classifier'))
-
-				response = "Here's the text:\n\n" + response + "\n\nDo you want me to send it?"
-
-			elif 'command' == action:
-				response = None
-				#pattern = [['become, be', 'work'], ['my', 'a', 'as', None]]
-				first_word = re.findall(r'\w+', question)[0].lower()
-				try:
-					if first_word in ('become', 'be'):
-						last_word = re.findall(r'\w+', question)[-1].lower()
-						modes = AI.modes.keys()
-
-						if last_word in modes:
-							response = f"Now I'm {last_word}"
-							# ai = AI(last_word) TODO
-						else:
-							response = f"Sorry, I can't be '{last_word}' yet"
-				except:
-					pass
-
-				if not response:
-					response = self.ask(question)
-
-				#if re.search(r"\b(?:become my|be my)\s+(\w+)\b", question.strip()): mode = match.group(1).strip()
+			# run prompt corresponding with the action that was classified
+			elif hasattr(self.pipelines, action):
+				response = getattr(self.pipelines, action)(question, self) # TODO merge controller.pipelines with pipelines in self.ask
 
 			else:
 				response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
@@ -276,7 +226,7 @@ class Chat:
 		try:
 			s = []
 			times = self.ai.stats.last
-			if(voice_reco):
+			if voice_recognized:
 				s.append(times['whisper-1']['time'])
 			if self.classifier:
 				s.append(times[self.classifier.mode]['time'])
@@ -286,25 +236,6 @@ class Chat:
 
 		#print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
 		return response
-
-	def reply(self, response, say=True):
-		if response:
-			"""json = self.logger.yamlize(response)
-			if(json):
-				response = json"""
-			print(self.enhance4screen(response))			
-			if say:
-				"""try: 
-					json = self.logger.yamlize(response)
-					if 'Translation' in json: 
-						response = json['Translation']
-					elif 'translation' in json: 
-						response = json['translation']
-				except:
-					pass"""
-		
-				self.say.say(response)
-			self.guide()
 
 	def ask(self, question=None, ai=None):
 		if question and len(question) < self.minChars:
@@ -325,7 +256,7 @@ class Chat:
 				pipeline = mode['pipeline'] if ('pipeline' in mode) else None
 				defaultTag = mode['defaultTag'] if ('defaultTag' in mode) else None
 				if pipeline:
-					output = getattr(self.convertor, pipeline)(reply, defaultTag) 
+					output = getattr(self.convertor, pipeline)(reply, defaultTag) # TODO merge controller.pipelines with pipelines in self.ask
 					#output = self.convertor.yaml2json(reply)
 					return output
 			except Exception as e:
@@ -345,7 +276,13 @@ class Chat:
 			
 			return None
 		
-	
+	def reply(self, response, say=True):
+		if response:
+			print(self.enhance4screen(response))			
+			if say:
+				self.say.say(response)
+			self.guide()
+
 	def enhance4screen(_, text):
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
 		#linelength = len(text.split('\n')[0])
@@ -364,210 +301,6 @@ class Chat:
 		text = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8')
 		print(text)
 		return text
-
-class Controller:
-	def __init__(self):
-		self.convertor = Convertor()
-
-	def nurse(self, text):
-		return text
-
-	def translation(self, text):
-		return self.convertor.translation(text)
-
-class AI:
-	modes = None
-	conf = None
-	models = ['gpt-3.5-turbo', 'gpt-4']
-	key = None
-
-	def __init__(self, mode=None, model=0):
-		self.model = model
-		self.messages = []
-		self.tokensUsed = 0
-
-		self.stats = integrations.Stats()
-		
-		# alternatively openai.api_key = os.environ.get('OPENAI_KEY')
-		if not AI.key:
-			with open('../private.key', 'r') as key:	# TODO read just once
-				AI.key = key.read().strip()
-		openai.api_key =  AI.key
-
-		if not AI.conf:
-			self.loadConfig()
-
-		self.mode = mode if mode else list(AI.modes.keys())[0]
-
-		# TODO should be in user storage instead of conf
-		self.languages = AI.conf['languages']
-		self.me = AI.conf['me']
-
-		self.clearMessages()
-		
-
-	def loadConfig(self):
-		with open('config.yaml', 'r') as file:
-			AI.conf = yaml.safe_load(file)
-		AI.modes = AI.conf['modes']
-
-	def switchModel(self):
-		self.model = (self.model+1)%len(self.models)
-		return AI.models[self.model]
-
-	def voice2text(self, filename):
-		audio_file= open(filename, "rb")
-		try:
-			t = time.time()
-			transcript = openai.Audio.transcribe("whisper-1", audio_file)
-			t = time.time()-t
-
-			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
-		except (openai.error.InvalidRequestError, openai.error.APIConnectionError, openai.error.APIError, Exception):
-			self.stats.add({'errors': 1}, 'whisper-1')
-			return None
-		return transcript
-
-	def chat(self, question): 
-		self.keepLastMessages()
-
-		messages = self.messages
-		if(question):
-			messages.append(self.messageFromTemplate('user', question))
-		
-		if 'model_params' in AI.modes[self.mode]:
-			params = AI.modes[self.mode]['model_params'].copy()
-		else:
-			params = {}
-		params['model'] = AI.models[self.model]
-		params['messages'] = messages
-
-
-		if 'logit_bias' in params: 	# TODO words must be converted to integer tokens
-			params.pop('logit_bias')
-			
-		t = time.time()
-		try:
-			
-			# TODO retry with openai.ChatCompletion.create(**params)
-			
-			response = openai.ChatCompletion.create(**params)
-
-			t = time.time()-t
-			usage = response['usage']
-			usage['time'] = t
-			usage['items'] = len(response['choices'])
-			self.stats.add(usage, self.mode)
-		
-		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout) as e:
-			t = time.time()-t
-			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
-		
-		messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))
-		
-		self.messages = messages
-		self.tokensUsed = response['usage']['total_tokens']
-
-		return response
-
-	def messageFromTemplate(self, role, content): # TODO yet to be finished by refactoring loadConf
-		templates = AI.modes[self.mode]['messages']
-		
-		if role in templates:
-			if content:
-				if isinstance(content, list):
-					message = templates[role].format(*content)
-				else: 
-					message = templates[role].format(content)
-			else:
-				message = template[role].copy()
-		else:
-			message = content
-		
-		return {'role': role, 'content': message };
-
-	def keepLastMessages(self, keep=None):
-		try:
-			if not keep:
-				keep = AI.modes[self.mode]['messages']['remember']
-
-			self.clearMessages(keep)
-		except:
-			pass
-		# self.messages = messages
-
-	def clearMessages(self, keep=0):
-		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
-		if keep <= len(self.messages):
-			try:
-				# keep last messages
-				if keep > 0:
-					self.messages = self.messages[len(self.messages)-keep:]				
-				# remove last message 
-				elif keep < 0:
-					if len(self.messages) > 1:
-						self.messages.pop() # TODO allow more messages and self.countTokens(last message)
-				#erase all
-				else:
-					self.tokensUsed = 0
-					self.messages = []
-
-				# TODO count tokens
-			except IndexError:
-				pass
-		try:
-			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
-				self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])] + self.messages;
-		except Exception as e:
-			print(e)
-
-	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
-		self.messages.append(self.messageFromTemplate('user', question))
-		response = openai.ChatCompletion.create(
-			model = AI.models[self.model],
-			messages = self.messages,
-			temperature = 0,
-			stream = True
-		)
-		content = ""
-		for message in response:
-			if 'choices' in message:
-				if 'content' in message['choices'][0]['delta']:
-					delta = message['choices'][0]['delta']['content']
-					print(delta)
-					content += delta
-			elif "error" in message:
-				print(message["error"]['message'])
-			time.sleep(0.1) # not sure what time should be used not to hit rate limiting. 
-		"""if content:
-			self.messages.append({'role': "assistant", 'content': content})"""
-		return content
-
-	def completion(self, prompt):
-		response = openai.Completion.create(
-			engine = 'text-davinci-003',
-			prompt = prompt,
-			max_tokens = 1024,
-			stop = None,
-			temperature = 0
-		)
-		reply = response['choices'][0]["text"]
-		return reply
-
-	def countTokens(self, text):
-		# experimentally getting ~0.7-0.75 words/tokens
-		return len(re.sub(r'\s+', ' ', text).split(" "))
-
-	def getPrice(self, text):
-		return words*tokenPrice(text)
-
-	def getLastReply(self):
-		if len(self.messages)<1 or self.messages[-1]['role'] != 'assistant':
-			return None
-		return {
-			'mail': self.me['mail'],
-			'message': self.messages[-1]['content']}
 
 class Recorder:
 	def __init__(self):
