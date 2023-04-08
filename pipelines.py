@@ -6,8 +6,9 @@ import re
 
 class Pipelines:
 	def __init__(self):
-		self.convertor = integrations.Convertor()
+		self.convert = integrations.Convertor()
 		self.google = integrations.Google()
+		self.classifier = None
 
 	def execute(self, text, ai, chat):
 		mode = AI.modes[ai.mode]
@@ -21,29 +22,45 @@ class Pipelines:
 				else:
 					pipe = step.split('.')
 					if len(pipe)<2 or len(pipe[0])<1:
-						pipe = [self, step]
-					# else pipe[0] = getattr("__main__", pipe[0])
-					text = getattr(pipe[0], pipe[1])(text, chat) 
+						text = getattr(self, step)(text, chat) 
+					else:
+						method = getattr(self, pipe[0])
+						# pipe[0] = getattr("__main__", pipe[0])
+						text = getattr(method, pipe[1])(text) 
 		else: 
 			text = chat.ask(text)
-		return text	
+		return str(text)
 
-	def classify(self, question, chat):
-		classifier = AI('_classifier')
-		action = chat.ask(question, classifier)
-		#action = convertor.yaml2json(action)
+	def classify(self, question, ai, chat):
+		print("…classifying ")
+		if not self.classifier:
+			self.classifier = AI('_classifier')
+		action = chat.ask(self.convert.firstSentences(question), self.classifier)  # TODO do it singleton 
+		
+		# TODO do it through YAML
+		if action:
+			action = re.sub(r'[,.]', "", action.strip().lower())
+			if 'action:' in action:
+				action = action[7:].strip()
+		#action = convert.yaml2json(action)
 
-		if hasattr(self, action):
-			response = getattr(self, action)(question, self) 
+		# ask if no action
+		if action in ('none', None):
+			print('…thinking\n')
+			response = self.execute(question, ai, chat)
+			#response = self.ask(question)
+
+		elif hasattr(self, action):
+			response = getattr(self, action)(question, chat) 
 		else:
-			response = chat.ask(question)
+			response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
 
-		return response
+		return str(response)
 
 
 	def translation(self, text, chat):
 		text = chat.ask(text)
-		json = self.convertor.yaml2json(text, defaultTag='translation')
+		json = self.convert.yaml2json(text, defaultTag='translation')
 		output = json['translation']+"\n"
 		output += f">>> from: {json['from']}, to: {json['to']} <<<"
 		return output
@@ -54,22 +71,22 @@ class Pipelines:
 		if response:
 			try:
 				data = yaml.load(response, Loader=yaml.FullLoader)
-				if 'Body' not in data:
-					data['Body'] = response
+				if 'Message' not in data:
+					data['Message'] = response
 			
 			except Exception as e:
 				print (e) 
-				data = {'Body':message, 'Subject': 'note to myself'}
+				data = {'Message':response, 'Subject': 'note to myself'}
 
 			try:
-				if data['Body'] in ('this-conversation', 'last-message'):
-					data['Body'] = chat.ai.messages[-1]['content']
+				if data['Message'] in ('this-conversation', 'last-message'):
+					data['Message'] = chat.ai.messages[-1]['content']
 					data['Summary'] = "Our conversation"
 
 				response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipients'], data['Service'], data['Summary'])
 
 				data['Recipients'] = chat.ai.me['mail']
-				self.google.mailLast({'message':data['Body'], 'mail':chat.ai.me['mail'], 'subject':data['Summary']})
+				self.google.mailLast({'message':data['Message'], 'mail':chat.ai.me['mail'], 'subject':data['Summary']})
 			except Exception as e:
 				print("Error:")
 				print(e)

@@ -37,7 +37,7 @@ class Chat:
 
 		self.logger = integrations.Logger()
 		
-		self.classifier = None
+		self.execute = self.pipeline.execute
 		self.minChars = 5
 
 	def guide(self):
@@ -47,7 +47,7 @@ class Chat:
 
 		rprint("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
 
-		rprint(guide.format("'on'" if self.classifier else 'off', self.ai.models[self.ai.model]))
+		rprint(guide.format('off' if self.execute == self.pipeline.execute else "'on'", self.ai.models[self.ai.model]))
 
 		cnt = len(self.ai.messages)-1
 		if cnt:
@@ -123,12 +123,14 @@ class Chat:
 
 			# toggle functions/classifier
 			elif 'f' == prompt:
-				if self.classifier == None: 
-					self.classifier = AI('_classifier')
+				if self.execute == self.pipeline.execute: 
+					self.execute = self.pipeline.classify
+					status = "'on'"
 				else:
-					self.classifier = None	
+					self.execute = self.pipeline.execute
+					status = 'off'
 
-				print("Functions {}".format('on' if self.classifier else 'off'))
+				rprint("Functions {}".format(status))
 
 			# print messages
 			elif 'm' == prompt:
@@ -197,32 +199,8 @@ class Chat:
 			self.say.say("No input given")
 			return None
 
-		if self.classifier:
-			print("…classifying ")
-
-			action = self.ask(self.convert.firstSentences(question), self.classifier) 
-
-			# be tolerant in detecting action
-			if action:
-				action = re.sub(r'[,.]', "", action.strip().lower())
-				if 'action:' in action:
-					action = action[7:].strip()
-
-			# ask if no action
-			if action in ('none', None):
-				print('…thinking\n')
-				response = self.ask(question)
-
-			# run prompt corresponding with the action that was classified
-			elif hasattr(self.pipeline, action):
-				response = getattr(self.pipeline, action)(question, self) 
-
-			else:
-				response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
-		else:
-			print('…thinking\n')
-			response = self.pipeline.execute(question, self.ai, self)
-			#response = self.ask(question)
+		response = self.execute(question, self.ai, self)
+		#response = self.ask(question)
 			
 		self.reply(response)
 

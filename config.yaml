@@ -112,7 +112,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Diagnóza v bodech:{}
 
                 Lékařský záznam s formalitami:
-#        pipeline: nurse
+#        pipeline: [nurse]
         model_params:
             temperature: 0
     messenger:
