@@ -62,7 +62,11 @@ class Pipelines:
 		text = chat.ask(text)
 		json = self.convert.yaml2json(text, defaultTag='translation')
 		output = json['translation']+"\n"
-		output += f">>> from: {json['from']}, to: {json['to']} <<<"
+		try:
+			output += f">>> from: {json['from']}, to: {json['to']} <<<"
+			chat.ai.languages  = [json['from'], json['to']]
+		except: 
+			print("Error: did not classify the languages.")
 		return output
 
 	def communicate(self, question, chat): 
