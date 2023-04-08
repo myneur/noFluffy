@@ -12,7 +12,7 @@ import subprocess
 import re
 import yaml
 
-from rich import print
+from rich import print as rprint
 from rich.markdown import Markdown
 import markdown	
 
@@ -31,8 +31,8 @@ class Chat:
 		self.rec = Recorder()
 		self.say = Synthesizer()
 		self.ai = AI()
-		self.convertor = integrations.Convertor()
-		self.pipelines = Pipelines()
+		self.convert = integrations.Convertor()
+		self.pipeline = Pipelines()
 		self.google = integrations.Google()
 
 		self.logger = integrations.Logger()
@@ -45,13 +45,13 @@ class Chat:
 		options.remove(self.ai.mode)
 		options = [o for o in options if not o.startswith("_")]
 
-		print("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
+		rprint("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
 
-		print(guide.format("'on'" if self.classifier else 'off', self.ai.models[self.ai.model]))
+		rprint(guide.format("'on'" if self.classifier else 'off', self.ai.models[self.ai.model]))
 
 		cnt = len(self.ai.messages)-1
 		if cnt:
-			print("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
+			rprint("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
 		print()
 
 	def go(self): 
@@ -74,7 +74,12 @@ class Chat:
 				print('…recognizing')
 				transcript = self.ai.voice2text(file)
 				if not transcript:
-					mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
+					if transcript == False:
+						mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
+					elif transcript == "":
+						mess = "No input.\n"
+					else:
+						mess = "No internet. Connect it.\n"
 					print(mess)
 					self.say.say(mess)
 					continue
@@ -108,11 +113,11 @@ class Chat:
 			# last response to data structure
 			elif prompt.startswith('>'): # >model>value
 				try:
-					data = self.convertor.yaml2json(self.ai.messages[-1]['content'])
+					data = self.convert.yaml2json(self.ai.messages[-1]['content'])
 					print(data)
 					groups = prompt.split('>')
 					if len(groups)>2:
-						self.convertor.saveAsCases(data, groups[1].strip(), groups[2].strip())
+						self.convert.saveAsCases(data, groups[1].strip(), groups[2].strip())
 				except Exception as e:
 					print(e)
 
@@ -195,13 +200,7 @@ class Chat:
 		if self.classifier:
 			print("…classifying ")
 
-			# classify only start not to confuse him to much
-			firstSentences = re.split(r'(?<=\w[.?^!]) +(?=\w)', question)
-			firstSentences = ".".join(firstSentences[:2])
-			if len(firstSentences)<200:
-				firstSentences = question[:200]
-			
-			action = self.ask(firstSentences, self.classifier) 
+			action = self.ask(self.convert.firstSentences(question), self.classifier) 
 
 			# be tolerant in detecting action
 			if action:
@@ -215,14 +214,15 @@ class Chat:
 				response = self.ask(question)
 
 			# run prompt corresponding with the action that was classified
-			elif hasattr(self.pipelines, action):
-				response = getattr(self.pipelines, action)(question, self) # TODO merge controller.pipelines with pipelines in self.ask
+			elif hasattr(self.pipeline, action):
+				response = getattr(self.pipeline, action)(question, self) 
 
 			else:
 				response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
 		else:
 			print('…thinking\n')
-			response = self.ask(question)
+			response = self.pipeline.execute(question, self.ai, self)
+			#response = self.ask(question)
 			
 		self.reply(response)
 
@@ -257,12 +257,6 @@ class Chat:
 			try:
 				mode = AI.modes[self.ai.mode]
 
-				pipeline = mode['pipeline'] if ('pipeline' in mode) else None
-				defaultTag = mode['defaultTag'] if ('defaultTag' in mode) else None
-				if pipeline:
-					output = getattr(self.convertor, pipeline)(reply, defaultTag) # TODO merge controller.pipelines with pipelines in self.ask
-					#output = self.convertor.yaml2json(reply)
-					return output
 			except Exception as e:
 				print(e)
 
@@ -282,7 +276,7 @@ class Chat:
 		
 	def reply(self, response, say=True):
 		if response:
-			print(self.enhance4screen(response))			
+			rprint(self.enhance4screen(response))			
 			if say:
 				self.say.say(response)
 			self.guide()

@@ -37,8 +37,7 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             temperature: 0
             logit_bias: {'From': 1, 'To': 1, 'Translation': 1, 'Text:': 0}
-        pipeline: translation
-        defaultTag: translation
+        pipeline: [translation]
 #       TODO: confused with YAML-like input (e. g. starting with '-' > preprocess  )
     writer:
         goal: |
@@ -119,7 +118,7 @@ modes: # default is 1st, underscored are hidden used by system
     messenger:
         goal: I transform requests to send a message to YAML for API calls
 #           TODO indentify multiple recipients
-        version: 0.3
+        version: 0.4
         messages:
             system: |
                 You convert a request to send a message into the folowing YAML format.
@@ -130,7 +129,8 @@ modes: # default is 1st, underscored are hidden used by system
                 Recipients: "the recipient or recipients mentioned"
                 Service: "mentioned service to send the message like email or SMS"
                 Message: "The text of the body of the message"
-                Summary: "Summarize the message body"
+                Subject: "Subject of the message"
+                Attachments: "What was requested to send as an attachement if any"
             user: |
                 Request:
                 {}
@@ -140,7 +140,7 @@ modes: # default is 1st, underscored are hidden used by system
                 - If the Body refers to the last conversation or message or just 'it' set Body to 'last-message'.
                 - Always address the recipient in the first person. Like 'myself' instead of 'mine'.
                 - If there aren't any Recipients or Service mentioned, fill in 'none'. 
-                - Always summarize the Message body into a Summary consisting just a few words.                
+                - When no Subject given, create it by summarizing the Message body into few words.                
 
                 Convert the Request into the mentioned YAML format:
 

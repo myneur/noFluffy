@@ -186,8 +186,6 @@ class Splitter:
 			json.dump(data, f)
 
 
-
-
 class Scraper:
 	def YTAudio(self, url):
 		yt = YouTube(url)
@@ -231,35 +229,6 @@ class Logger:
 		except Exception as e:
 			print('Logging failed: '+e)
 
-	def logDataStructure(self, dataStructure, filename="output"):
-		dataStructure = dataStructure.strip()
-		try:
-			if dataStructure[0] == "{":
-				print('JSON')
-				try:
-					json = json.loads(dataStructure)
-					print(json)
-				except:
-					print("not valid")
-					print(dataStructure)
-			elif re.match(r"\w+:", dataStructure):
-				try:
-					print('YAML')
-					print(dataStructure)
-					json = yaml.load(response, Loader=yaml.FullLoader)
-					print(json)
-					#re.compile(r"(```.*?```)", re.DOTALL).sub("Example code.\n", text)
-				except:
-					print("not valid")
-					print(dataStructure)
-			else:
-				print("TXT")
-				for line in dataStructure.splitlines():
-					print("- "+ line)
-
-		except Exception as e:
-			print(e)
-
 class Convertor:
 	def __init__(self):
 		self.listKey = '_list'
@@ -273,7 +242,7 @@ class Convertor:
 		# what to tolerate as id
 		# 1_2_words = r"^\w+\s?\w*:"
 		#1_2_words_w_quotes = r"^[\s\"\']*\w+[\s\"\']*:"
-		compound_words_n_quotes = r"^[\s\"\']*[\w\-_]+[\s\"\']*:"
+		compound_words_n_quotes = r"^[\s\"\'\-]*[\w\-_]+[\s\"\']*:"
 		blanks_n_quotes = re.compile(r"['\"\s]", re.DOTALL)
 		list_item = r"\s*(-|\d+[\.)])\s*"
 
@@ -336,44 +305,12 @@ class Convertor:
 		except Exception as e:
 			print(e)
 
-	def translation(self, text, defaultTag=None):
-		json = self.yaml2json(text, defaultTag)
-		output = json['translation']+"\n"
-		output += f">>> from: {json['from']}, to: {json['to']} <<<"
-		return output
-
-
-"""	def toJSON(self, text):
-		try:
-			yam = self.jsonize(text)
-			son = self.yamlize(text)
-			lines = ["- "+line for line in dataStructure.splitlines() if line.strip()]
-
-			return 
-		except Exception as e:
-			print(e)
-			return None
-
-	def yamlize(self, text):
-		yaml_lines = []
-		for line in text.splitlines():
-			try:
-				yaml.safe_load(line)
-				yaml_lines.append(line)
-			except yaml.YAMLError:
-				pass
-		return yaml.safe_load('\n'.join(yaml_lines)) if yaml_lines else None
-
-	def jsonize(text):
-		json_lines = []
-		for line in text.splitlines():
-			try:
-				json.loads(line)
-				json_lines.append(line)
-			except json.JSONDecodeError:
-				pass
-		return json.loads('{%s}' % ', '.join(json_lines)) if json_lines else None"""
-		
+	def firstSentences(self, text):
+		firstSentences = re.split(r'(?<=\w[.?^!]) +(?=\w)', text)
+		firstSentences = ".".join(firstSentences[:2])
+		if len(firstSentences)<200:
+			firstSentences = text[:200]
+		return firstSentences
 
 
 class Stats:

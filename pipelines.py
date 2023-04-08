@@ -9,8 +9,44 @@ class Pipelines:
 		self.convertor = integrations.Convertor()
 		self.google = integrations.Google()
 
-	def translation(self, text):
-		return self.convertor.translation(text)
+	def execute(self, text, ai, chat):
+		mode = AI.modes[ai.mode]
+		pipeline = mode['pipeline'] if 'pipeline' in mode else None
+		if pipeline:
+			for step in pipeline:
+				if step in chat.ai.modes.keys():
+					text = chat.ask(text, AI(step))
+				elif step == 'self':
+					text = chat.ask(text)
+				else:
+					pipe = step.split('.')
+					if len(pipe)<2 or len(pipe[0])<1:
+						pipe = [self, step]
+					# else pipe[0] = getattr("__main__", pipe[0])
+					text = getattr(pipe[0], pipe[1])(text, chat) 
+		else: 
+			text = chat.ask(text)
+		return text	
+
+	def classify(self, question, chat):
+		classifier = AI('_classifier')
+		action = chat.ask(question, classifier)
+		#action = convertor.yaml2json(action)
+
+		if hasattr(self, action):
+			response = getattr(self, action)(question, self) 
+		else:
+			response = chat.ask(question)
+
+		return response
+
+
+	def translation(self, text, chat):
+		text = chat.ask(text)
+		json = self.convertor.yaml2json(text, defaultTag='translation')
+		output = json['translation']+"\n"
+		output += f">>> from: {json['from']}, to: {json['to']} <<<"
+		return output
 
 	def communicate(self, question, chat): 
 		print('…preparing message')

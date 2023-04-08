@@ -57,8 +57,9 @@ class AI:
 		except (openai.error.InvalidRequestError, openai.error.APIConnectionError, openai.error.APIError) as e:
 			self.stats.add({'errors': 1}, 'whisper-1')
 			print(e)
-			return None
+			return False
 		except Exception as e:
+			# also the case of no internet
 			self.stats.add({'errors': 1}, 'whisper-1')
 			print(e)
 			return None
