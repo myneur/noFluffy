@@ -23,7 +23,7 @@ import traceback
 
 guide = """– 'Listen': ENTER to start & stop
 – 'Exit': ESC (+Enter)
-- 'Functions' are '{}', using {}
+- 'Functions' are {}, using {}
 – 'Clear' conversation: 0 """
 
 class Chat:
@@ -47,7 +47,7 @@ class Chat:
 
 		print("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
 
-		print(guide.format('on' if self.classifier else 'off', self.ai.models[self.ai.model]))
+		print(guide.format("'on'" if self.classifier else 'off', self.ai.models[self.ai.model]))
 
 		cnt = len(self.ai.messages)-1
 		if cnt:
@@ -106,9 +106,13 @@ class Chat:
 				self.ai.clearMessages()
 
 			# last response to data structure
-			elif '>' == prompt:
+			elif prompt.startswith('>'): # >model>value
 				try:
-					print (self.convertor.yaml2json(self.ai.messages[-1]['content']))
+					data = self.convertor.yaml2json(self.ai.messages[-1]['content'])
+					print(data)
+					groups = prompt.split('>')
+					if len(groups)>2:
+						self.convertor.saveAsCases(data, groups[1].strip(), groups[2].strip())
 				except Exception as e:
 					print(e)
 

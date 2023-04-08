@@ -76,9 +76,9 @@ class AI:
 			params = AI.modes[self.mode]['model_params'].copy()
 		else:
 			params = {}
-		params['model'] = AI.models[self.model]
+		if 'model' not in params:
+			params['model'] = AI.models[self.model]
 		params['messages'] = messages
-
 
 		if 'logit_bias' in params: 	# TODO words must be converted to integer tokens
 			params.pop('logit_bias')
@@ -99,12 +99,12 @@ class AI:
 		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
+			return {'error': e, 'time':t}
 
 		except Exception as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': e, 'traceback': traceback.format_exc(), 'time':t}
+			return {'error': e, 'time':t}
 
 		
 		messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))

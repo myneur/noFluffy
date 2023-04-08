@@ -261,36 +261,39 @@ class Logger:
 			print(e)
 
 class Convertor:
+	def __init__(self):
+		self.listKey = '_list'
 
 	# convert a GPT output that is supposed to be YAML into a JSON while being tolerant to invalid lines and multilines
 	def yaml2json(self, text, defaultTag=None): 
 		json = {}
 		lastTag = defaultTag	# used when first lines are without any tag
-		listKey = '_list'
+		listKey = self.listKey
+
+		# what to tolerate as id
+		# 1_2_words = r"^\w+\s?\w*:"
+		#1_2_words_w_quotes = r"^[\s\"\']*\w+[\s\"\']*:"
+		compound_words_n_quotes = r"^[\s\"\']*[\w\-_]+[\s\"\']*:"
+		blanks_n_quotes = re.compile(r"['\"\s]", re.DOTALL)
+		list_item = r"\s*(-|\d+[\.)])\s*"
+
 		for line in text.splitlines():
 			line = line.strip()
-
-			# what to tolerate as id
-			# 1_2_words = r"^\w+\s?\w*:"
-			#1_2_words_w_quotes = r"^[\s\"\']*\w+[\s\"\']*:"
-			compound_words_n_quotes = r"^[\s\"\']*[\w\-_]+[\s\"\']*:"
-			blanks_n_quotes = r"['\"\s]"
-			list_item = r"\s*(-|\d+[\.)])\s*"
 
 			try:
 				# identifier
 				if re.match(compound_words_n_quotes, line):
 					yam = line.split(":", 1)
-					ident = yam[0].strip().lower()
-					ident = re.compile(blanks_n_quotes, re.DOTALL).sub('', ident)
-					json[ident] = yam[1].strip()
+					ident = self.stripQuotes(yam[0]).lower()
+					ident = blanks_n_quotes.sub('', ident)
+					json[ident] = self.stripQuotes(yam[1])
 					lastTag = ident
 
 				# list
 				elif re.match(list_item, line):
 					if listKey not in json:
 						json[listKey] = []
-					json[listKey].append(re.split(list_item, line, 1)[2])
+					json[listKey].append(self.stripQuotes(re.split(list_item, line, 1)[2]))
 					lastTag = listKey
 
 				# multilines to be passed to preivous ident
@@ -306,6 +309,32 @@ class Convertor:
 				print("Error" + e)
 		return json if json else None
 
+	def stripQuotes(self, text):
+		text = text.strip()
+		if text.startswith(("'", '"')) and text[0] == text[-1]:
+			text = text[1:-1]
+		return text
+
+	def saveAsCases(self, cases, expectedValue, model):
+		ok = "\n-   ok: "
+		q = "\n    q: |\n        "
+
+		try: 
+			if self.listKey in cases:
+				cases = cases[self.listKey]
+		except:
+			print("Error: That's not a list!")
+
+		filename = f"testdata/{model}.yaml"
+		try:
+			with open(filename, 'a+') as file:
+				for case in cases:
+					file.write(ok + expectedValue)
+					file.write(q + case)
+			print(f"{len(cases)} saved to {filename}")
+
+		except Exception as e:
+			print(e)
 
 	def translation(self, text, defaultTag=None):
 		json = self.yaml2json(text, defaultTag)
