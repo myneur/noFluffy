@@ -254,7 +254,7 @@ class Chat:
 		
 	def reply(self, response, say=True):
 		if response:
-			rprint(self.enhance4screen(response))			
+			rprint(self.enhance4screen(response))
 			if say:
 				self.say.say(response)
 			self.guide()
@@ -263,7 +263,7 @@ class Chat:
 		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
 		#linelength = len(text.split('\n')[0])
 		linelength = 10
-		text = re.sub(pattern, r'\n' + '–'*linelength + r'\n\1\n' + '–'*linelength + '\n', text)
+		text = re.sub(pattern, r'\n' + '–'*linelength + r'\n|```\1```|\n' + '–'*linelength + '\n', text)
 		#text = Markdown(text)
 		return text
 
