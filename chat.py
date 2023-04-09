@@ -32,7 +32,7 @@ class Chat:
 		self.say = Synthesizer()
 		self.ai = AI()
 		self.convert = integrations.Convertor()
-		self.pipeline = Pipelines()
+		self.pipeline = Pipelines(self)
 		self.google = integrations.Google()
 
 		self.logger = integrations.Logger()
@@ -194,14 +194,8 @@ class Chat:
 					self.rec.rec()
 
 	def run(self, question, voice_recognized=False): 
-		if not question:
-			print('No input.')
-			self.say.say("No input given")
-			return None
 
-		response = self.execute(question, self.ai, self)
-		#response = self.ask(question)
-			
+		response = self.execute(question)
 		self.reply(response)
 
 		# log stats (time, length)
@@ -219,10 +213,7 @@ class Chat:
 		#print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
 		return response
 
-	def ask(self, question=None, ai=None):
-		if question and len(question) < self.minChars:
-			return question + ' is not a question'
-		
+	def ask(self, question, ai=None):
 		if ai == None:
 			ai = self.ai
 			self.logger.log('- |\n  '+question.replace('\n', '\n  '))

@@ -5,13 +5,15 @@ import yaml
 import re
 
 class Pipelines:
-	def __init__(self):
+	def __init__(self, chat):
 		self.convert = integrations.Convertor()
 		self.google = integrations.Google()
 		self.classifier = None
+		self.chat = chat
 
-	def execute(self, text, ai, chat):
-		mode = AI.modes[ai.mode]
+	def execute(self, text):
+		chat = self.chat
+		mode = AI.modes[chat.ai.mode]
 		pipeline = mode['pipeline'] if 'pipeline' in mode else None
 		if pipeline:
 			for step in pipeline:
@@ -22,7 +24,7 @@ class Pipelines:
 				else:
 					pipe = step.split('.')
 					if len(pipe)<2 or len(pipe[0])<1:
-						text = getattr(self, step)(text, chat) 
+						text = getattr(self, step)(text) 
 					else:
 						method = getattr(self, pipe[0])
 						# pipe[0] = getattr("__main__", pipe[0])
@@ -31,11 +33,11 @@ class Pipelines:
 			text = chat.ask(text)
 		return str(text)
 
-	def classify(self, question, ai, chat):
+	def classify(self, question):
 		print("…classifying ")
 		if not self.classifier:
 			self.classifier = AI('_classifier')
-		action = chat.ask(self.convert.firstSentences(question), self.classifier)  # TODO do it singleton 
+		action = self.chat.ask(self.convert.firstSentences(question), self.classifier)  # TODO do it singleton 
 		
 		# TODO do it through YAML
 		if action:
@@ -47,30 +49,31 @@ class Pipelines:
 		# ask if no action
 		if action in ('none', None):
 			print('…thinking\n')
-			response = self.execute(question, ai, chat)
+			response = self.execute(question)
 			#response = self.ask(question)
 
 		elif hasattr(self, action):
-			response = getattr(self, action)(question, chat) 
+			response = getattr(self, action)(question) 
 		else:
 			response  =f'I see you are asking about "{action}". That function will be implemented later. Please be patient.'
 
 		return str(response)
 
 
-	def translation(self, text, chat):
-		text = chat.ask(text)
+	def translation(self, text):
+		text = self.chat.ask(text)
 		json = self.convert.yaml2json(text, defaultTag='translation')
 		output = json['translation']+"\n"
 		try:
 			output += f">>> from: {json['from']}, to: {json['to']} <<<"
-			chat.ai.languages  = [json['from'], json['to']]
+			self.chat.ai.languages  = [json['from'], json['to']]
 		except: 
 			print("Error: did not classify the languages.")
 		return output
 
-	def communicate(self, question, chat): 
+	def communicate(self, question): 
 		print('…preparing message')
+		chat = self.chat
 		response = chat.ask(question, AI('messenger'))
 		if response:
 			try:
@@ -96,17 +99,17 @@ class Pipelines:
 				print(e)
 			return response
 
-	def inbox(self, question, chat):
+	def inbox(self, question):
 		print('…summarizing inbox')
 		time.sleep(3)
 		return self.google.summarizeMailbox()
 
-	def calendar(self, question, chat):
+	def calendar(self, question):
 		print('…summarizing inbox')
 		return self.google.scheduleMeeting(question)
 
 
-	def write(self, question, chat):
+	def write(self, question):
 		print('…writing text')
 		response = self.ask(question, AI('_classifier'))
 
@@ -115,7 +118,7 @@ class Pipelines:
 		return response
 
 
-	def command(self, question, chat):
+	def command(self, question):
 		response = None
 		#pattern = [['become, be', 'work'], ['my', 'a', 'as', None]]
 		first_word = re.findall(r'\w+', question)[0].lower()
