@@ -4,6 +4,8 @@ import integrations
 import yaml
 import re
 
+import traceback
+
 class Pipelines:
 	def __init__(self, chat):
 		self.convert = integrations.Convertor()
@@ -11,10 +13,12 @@ class Pipelines:
 		self.classifier = None
 		self.chat = chat
 
-	def execute(self, text):
+	def execute(self, text, mode=None):
 		chat = self.chat
-		mode = AI.modes[chat.ai.mode]
+		if not mode:
+			mode = AI.modes[chat.ai.mode]
 		pipeline = mode['pipeline'] if 'pipeline' in mode else None
+		print('…thinking\n')
 		if pipeline:
 			for step in pipeline:
 				if step in chat.ai.modes.keys():
@@ -48,7 +52,6 @@ class Pipelines:
 
 		# ask if no action
 		if action in ('none', None):
-			print('…thinking\n')
 			response = self.execute(question)
 			#response = self.ask(question)
 
@@ -71,32 +74,40 @@ class Pipelines:
 			print("Error: did not classify the languages.")
 		return output
 
-	def communicate(self, question): 
+	def send_it(self, question): 
 		print('…preparing message')
 		chat = self.chat
 		response = chat.ask(question, AI('messenger'))
 		if response:
 			try:
-				data = yaml.load(response, Loader=yaml.FullLoader)
-				if 'Message' not in data:
-					data['Message'] = response
+				data = self.convert.yaml2json(response)
+				if 'message' not in data:
+					data['message'] = response
 			
 			except Exception as e:
 				print (e) 
-				data = {'Message':response, 'Subject': 'note to myself'}
+				data = {'message':response, 'subject': 'note to myself'}
 
 			try:
-				if data['Message'] in ('this-conversation', 'last-message'):
-					data['Message'] = chat.ai.messages[-1]['content']
-					data['Summary'] = "Our conversation"
+				data['recipients'] = chat.ai.me['mail']
 
-				response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['Recipients'], data['Service'], data['Summary'])
 
-				data['Recipients'] = chat.ai.me['mail']
-				self.google.mailLast({'message':data['Message'], 'mail':chat.ai.me['mail'], 'subject':data['Summary']})
+				if data['message'] in ('this-conversation', 'last-message'):
+					data['message'] = chat.ai.getLastReply()['message']
+
+				try:
+					summary = chat.ask(data['message'], AI('summarize'))
+					data['summary'] = summary if summary else "Our last conversation"
+					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['recipients'], data['service'], data['summary'])
+
+					self.google.mailLast({'message': data['message'], 'mail': data['recipients'], 'subject': data['summary']})
+				except Exception as e:
+					print(f"Error: {type(e).__name__}: {e}, {e.args} ")
+					traceback.print_exc()
+					#print(data)
+
 			except Exception as e:
-				print("Error:")
-				print(e)
+				print("Error in creating the message. Needs review:(")
 			return response
 
 	def inbox(self, question):

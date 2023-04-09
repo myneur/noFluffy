@@ -155,6 +155,7 @@ class Chat:
 			elif '@' == prompt:
 				last = self.ai.getLastReply()
 				if last:
+					last['mail'] = self.ai.me['mail']
 					print('Sent') if self.google.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')

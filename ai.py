@@ -56,12 +56,12 @@ class AI:
 			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
 		except (openai.error.InvalidRequestError, openai.error.APIConnectionError, openai.error.APIError) as e:
 			self.stats.add({'errors': 1}, 'whisper-1')
-			print(e)
+			print(f"Error: {type(e).__name__}: {e}")
 			return False
 		except Exception as e:
 			# also the case of no internet
 			self.stats.add({'errors': 1}, 'whisper-1')
-			print(e)
+			print(f"Error: {type(e).__name__}: {e}")
 			return None
 
 		return transcript
@@ -206,9 +206,14 @@ class AI:
 	def getPrice(self, text):
 		return words*tokenPrice(text)
 
-	def getLastReply(self):
-		if len(self.messages)<1 or self.messages[-1]['role'] != 'assistant':
-			return None
-		return {
-			'mail': self.me['mail'],
-			'message': self.messages[-1]['content']}
+	def getLastReply(self, back=0):
+		i = len(self.messages)-1
+		while i>=0 and back>=0:
+			if self.messages[i]['role'] == 'assistant':
+				if back == 0:
+					return {'message': self.messages[i]['content']}
+				else:
+					back -= 1
+			i -= 1
+
+		return None

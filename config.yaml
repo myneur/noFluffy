@@ -95,12 +95,12 @@ modes: # default is 1st, underscored are hidden used by system
         version: 0.2
         messages:
             system: You are a corrector who corrects a grammar in the text if necessary.
-            user: "Text:{}
+            user: |
+                Text: {}
 
                 ---
 
-                Fix the grammar if necssary.
-                "
+                Fix the grammar if necessary.
             remember: 3
     _nurse:
         goal: Help doctor do bueraucracy 
@@ -136,8 +136,8 @@ modes: # default is 1st, underscored are hidden used by system
                 {}
 
                 ---
-                - Split the request to Recipients, Service and Body of the message. 
-                - If the Body refers to the last conversation or message or just 'it' set Body to 'last-message'.
+                - Split the request to Recipients, Service and the Message itself. 
+                - If the Message refers to the last conversation or message or just 'it' set Message to 'last-message'.
                 - Always address the recipient in the first person. Like 'myself' instead of 'mine'.
                 - If there aren't any Recipients or Service mentioned, fill in 'none'. 
                 - When no Subject given, create it by summarizing the Message body into few words.                
@@ -149,6 +149,20 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             temperature: 0
             stop: "###"
+    summarize:
+        goal: I create brief summaries
+        version: 0.1
+        messages:
+            system: You summarize the message content into a brief subject made of just a few words
+            user: |
+                {}
+
+                ---
+
+                Summarize the messsage content into a breif subject.
+            remember: 1
+        model_params:
+            temperature: 0
     creative:
         goal: I come up with creative ideas for your requests.
         version: 0.1
@@ -175,7 +189,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Detect if text starts with a request for any of the next actions:
 
                 Actions:
-                - communicate: direct request to send the last message or just 'it' by a message, mail or text.
+                - send_it: direct request to send the last message or just 'it' by a message, mail or text.
                 - write: write a mail with the given text
                 - inbox: read or summarize my inbox
                 - calendar: schedule a meeting, or send  ameeting request
@@ -183,7 +197,7 @@ modes: # default is 1st, underscored are hidden used by system
                 - maps: find venues in a given location or get driving directions or commuting time to a location
                 - command: max few words starting with synonyms of (be, become)
 
-                You are not allowed to reply anything except the word representing one action above: communicate, todos or maps. 
+                You are not allowed to reply anything except the word representing one action above: send_it, todos or maps. 
                 Reply only with exactly 1 word representing the Action.
                 If text does not start with a request for any of these actions, reply with none.
 
@@ -195,7 +209,7 @@ modes: # default is 1st, underscored are hidden used by system
                 Action: todos
 
                 Text: Send it to me by an email.
-                Action: communicate
+                Action: send_it
 
                 Text: What are best restaurants around?
                 Action: maps
