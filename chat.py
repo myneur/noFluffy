@@ -13,6 +13,10 @@ import re
 import yaml
 
 from rich import print as rprint
+"""from rich.console import Console
+console = Console()
+from rich.style import Style
+"""
 from rich.markdown import Markdown
 import markdown	
 
@@ -132,6 +136,21 @@ class Chat:
 
 				rprint("Functions {}".format(status))
 
+			# explain last response
+			elif 'i' == prompt:
+				explainer = AI("_improve")
+				explainer.messages += self.ai.messages
+				print("What was the expected output?")
+				question = input()
+
+				explainer.messages[1]['content'] = "SYSTEM MESSAGE:\n"+explainer.messages[1]['content']
+				explainer.messages[-2]['content'] = "PROMPT:\n"+explainer.messages[-2]['content']
+				explainer.messages[-1]['content'] = "CHAT GPT REACTION:\n"+explainer.messages[-1]['content']
+				question = "EXPECTED REACTION:\n"+question
+				print("…debugging")
+				reply = explainer.chat(question)
+				self.reply(reply['choices'][0]['message']['content']) # TODO handle errors
+
 			# print messages
 			elif 'm' == prompt:
 				for message in self.ai.messages:
@@ -139,6 +158,7 @@ class Chat:
 
 			# log a comment
 			elif 'l' == prompt:
+				print("Type note to log")
 				self.logger.log('- note: '+input())
 
 			# copy reply to clipboard
@@ -246,18 +266,46 @@ class Chat:
 		
 	def reply(self, response, say=True):
 		if response:
-			rprint(self.enhance4screen(response))
+			self.printBlocks(self.MD2Blocks(response))
+			#print(response)
 			if say:
 				self.say.say(response)
 			self.guide()
 
-	def enhance4screen(_, text):
-		pattern = r'(?m)^\s*```([\s\S]*?)```\s*$'
+	def MD2Blocks(_, text):
+		objectTypes = {
+			'code': r'(?m)^\s*```(\w*)([\s\S]*?)```\s*$', 
+			'list': r"^(?: *[\*\-+]|\d+\.)[^\n]*$", 
+			'table': r"^[|].*[|]$([\n^[|].*[|]$]+)?"}
+
+		
+		#blocks = [{'type': 'none', 'text': text}]
+		# TODO detect all markdown
+
+		objects = re.split(objectTypes['code'], text)
+		i = 0
+		for i, item in enumerate(objects): 
+			objects[i] = {'text': item} 
+			if i%2:
+				objects[i]['type'] = 'code'#+ match.group(1)
+			else:
+				objects[i]['type'] = 'text'
+				#console.print(block, style=Style(bgcolor="gray"))
+
 		#linelength = len(text.split('\n')[0])
-		linelength = 10
-		text = re.sub(pattern, r'\n' + '–'*linelength + r'\n|```\1```|\n' + '–'*linelength + '\n', text)
+		#text = re.sub(codeblocks, r'\n' + '–'*10 + r'\n```\1```\n' + '–'*10 + '\n', text)
 		#text = Markdown(text)
-		return text
+		blocks = objects
+		return blocks
+
+	def printBlocks(_, blocks):
+		for block in blocks:
+			block['text'] = block['text'].replace('[', "\\[") # rich library uses that as formatting
+			if block['type'] == 'code':
+				rprint("——————————"+block['text'])
+			else: 
+				rprint(block['text'])
+
 
 	def copy2clipboard(self, text):
 		print(text)
@@ -370,6 +418,8 @@ class Synthesizer:
 				processed += line +'\n'
 
 		# unwoke
-		processed = re.sub(r'\b(\w{3,})/á\b', r'\1', processed)
-				
+		#woke = r'\b(\w{3,})/á\b'
+		woke = r"(\w{3,})(\/á)|(\/a)|\(\-?a\)(?=\s|$)"
+		processed = re.sub(woke, r'\1', processed)
+		
 		return processed

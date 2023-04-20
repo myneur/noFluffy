@@ -1,34 +1,196 @@
--   ok: communication
-    q: |
-        Email the last chat to John, please.
--   ok: communication
-    q: |
-        Send the last conversation over email to my boss.
--   ok: communication
-    q: |
-        Please email our discussion to the team.
--   ok: communication
-    q: |
-        Can you forward our previous chat to Mary via email?
--   ok: communication
-    q: |
-        Kindly send the last conversation through email to my colleague.
--   ok: communication
-    q: |
-        Hey, send an email to John at john@example.com with the subject line 'Project proposal' and the message content 'Hi John, attached to this email is the project proposal we discussed. Please have a look and let me know your thoughts. Thanks, [Your Name].'
+- Equals: send_recent
+  ko: None
+  service: mail
+  command: send
+  content_type: History
+  q: Send it to me by mail
+- Equals: write
+  service: none
+  command: create
+  content_type: Creation
+  q: |
+    Připrav mi text pro kámoše s oslovením ZDAR BORCI. Do mailu napiš v bodech, proč by měli věnovat pozornost nové umělé inteligenci. 
+    Uveď konkrétně, že je fakt dobrá v rozpoznávání jazyka, včetně češtiny. A že to rychle pomáhá splnit různý úkoly. 
+    Takže je potřeba se učit, jak se jí dobře ptát.
+- Equals: todos
+  service: task
+  command: read
+  q: |
+    Jaké mám úkoly na dnešek?
+- Equals: write
+  service: none
+  command: create
+  content_type: content
+  q: |
+    Připrav text právě pro kámoše, který bude začínat oslovením. Zdarborci a větou. 
+    Tohle si myslím, že budeme potřebovat v dalších letech. 
+- Equals: none
+  service: none
+  command: update
+  content_type: content
+  q: |
+    Okay, now add to this text as a next paragraph the most famous quote from William Gibson.
+- Equals: write
+  service: none
+  command: update
+  content_type: history
+  q: |
+    Okay, prepare a message with this quote and put at the start of the message, Čau borci!
+- Equals: write
+  service: none
+  command: update
+  content_type: history
+  q: |
+    Teď mi vytvoř z tohoto citátu zprávu, kterou uvedeš oslovením. Zdar, borci! 
+- Equals: none
+  service: none
+  command: update
+  content_type: history
+  q: |
+    No dobře, zopakuj tento citát česky. V úplném znění, ale doplň to tou větou a sekretářky nebudou mít co žrát.
+- Equals: none
+  service: none
+  command: none
+  q: |
+    Merge the lists by how struggling they are, by your opinion, and make a table from it with adding columns for a rank, 
+    how they are struggling relative to others, and why do they need to use an application or write text while doing their work.
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    Hey assistant, can you compose an email for me and send it to John? The subject should be 'Meeting tomorrow' and I want you to mention that the venue has changed.
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    Assistant, please email the client and say that we're experiencing some delays with their order. Make sure to ask for their patience and offer an estimated delivery date.
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    Hi assistant, would you mind shooting an email to Sarah? Tell her I won't be able to make it to the party tonight and apologize for the last-minute cancellation.,
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    Hey assistant, can you send an email to my boss? Let him know that I'm feeling under the weather and won't be able to make it to work today.
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    Assistant, please email the marketing team and request a PowerPoint presentation by Friday. Make sure to specify the main points of the presentation and the intended audience.
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    I'm swamped with work right now but need to send an important email to the client. Can you take dictation of what I want to say?
+- Equals: compose_message
+  service: mail
+  command: create
+  ko: send_recent
+  content_type: creation
+  q: |
+    I'm in a meeting but need to get an email out to our vendors ASAP. Can I dictate it to you and you can send it out on my behalf?
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    I'm not great with written communication, can you help me craft an email to HR regarding my leave request?
+- Equals: compose_message
+  service: mail
+  command: create
+  content_type: creation
+  q: |
+    I'm traveling and don't have time to sit down and write an email. Can I dictate to you what I need to send to my boss?
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: History
+  q: |
+    Hey, can you email me our chat from earlier?
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history 
+  q: |
+    Could you send me a copy of our conversation to my email?
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history
+  q: |
+    Assistant, please email me our recent chat to my inbox.
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history
+  q: |
+    Can you forward our recent chat to my email address, please?
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history
+  q: |
+    Send me the transcript of our conversation to my email, thanks.
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history
+  q: |
+    Email the last chat to John, please.
+- Equals: send_recent
+  service: mail
+  command: send
+  content_type: history
+  q: |
+    Send the last conversation over email to my boss.
+- Equals: send_recent
+  service: send
+  command: mail
+  content_type: history
+  q: |
+    Please email our discussion to the team.
+- Equals: send_recent
+  service: send
+  command: mail
+  content_type: history
+  q: |
+    Can you forward our previous chat to Mary via email?
+- Equals: compose_message
+  service: send
+  command: mail
+  content_type: content
+  q: |
+    Hey, send an email to John at john@example.com with the subject line 'Project proposal' and the message content 'Hi John, attached to this email is the project proposal we discussed. Please have a look and let me know your thoughts. Thanks, Petr.'
+- Equals: compose_message
+  service: send
+  command: mail
+  content_type: content
+  q: |
+    Assistant, please email Mary at mary@example.com. Use the subject 'Meeting Notes' and say 'Hi Mary, I hope all is well. Attached to this email, you'll find the notes from today's meeting. Let me know if you have any questions. Best, Pavel.'
+- Equals: compose_message
+  service: send
+  command: mail
+  content_type: content
+  q: |
+    Assistant, send an email to my boss at boss@example.com with the subject 'Update on Project X' and the message 'Hi Boss, I wanted to give you a quick update on Project X. We've encountered some challenges, but I'm confident we can overcome them. Attached is a report summarizing our progress. Let me know if you need anything else. Regards, Radek.'
 
--   ok: communication
-    q: |
-        Assistant, please email Mary at mary@example.com. Use the subject 'Meeting Notes' and say 'Hi Mary, I hope all is well. Attached to this email, you'll find the notes from today's meeting. Let me know if you have any questions. Best, [Your Name].'
-
--   ok: communication
-    q: |
-        Assistant, send an email to my boss at boss@example.com with the subject 'Update on Project X' and the message 'Hi Boss, I wanted to give you a quick update on Project X. We've encountered some challenges, but I'm confident we can overcome them. Attached is a report summarizing our progress. Let me know if you need anything else. Regards, [Your Name].'
-
--   ok: communication
-    q: |
-        Hey Siri, send an email to Jane Doe at jane.doe@example.com with the subject 'Petition to Save Our Park' and the message 'Hi Jane, I hope this email finds you well. I wanted to bring to your attention the petition some colleagues and I created to save our local park. Attached to this email, you'll find more information. We believe it's a cause worth fighting for. Best, [Your Name].'
-
--   ok: communication
-    q: |
-        Google, send an email to Alex at alex@example.com. Use the subject 'Feedback on your book' and write 'Hi Alex, I hope you're doing great. I recently finished reading your book and wanted to give you some feedback. I enjoyed it a lot and learned a great deal from it. Attached is a detailed review I wrote. Keep up the good work! Regards, [Your Name].'
+- Equals: compose_message
+  service: send
+  command: mail
+  content_type: content
+  q: |
+    Hey Siri, send an email to Jane Doe at jane.doe@example.com with the subject 'Petition to Save Our Park' and the message 'Hi Jane, I hope this email finds you well. I wanted to bring to your attention the petition some colleagues and I created to save our local park. Attached to this email, you'll find more information. We believe it's a cause worth fighting for. Best, Richard'
+- Equals: compose_message
+  service: send
+  command: mail
+  content_type: content
+  q: |
+    Google, send an email to Alex at alex@example.com. Use the subject 'Feedback on your book' and write 'Hi Alex, I hope you're doing great. I recently finished reading your book and wanted to give you some feedback. I enjoyed it a lot and learned a great deal from it. Attached is a detailed review I wrote. Keep up the good work! Regards, Sara.'

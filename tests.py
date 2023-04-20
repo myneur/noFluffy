@@ -7,6 +7,10 @@ import time
 from chat import AI
 #sys.path.remove('../')
 
+import integrations
+
+convert = integrations.Convertor()
+
 
 class TestFramework(unittest.TestCase):
 	# todo generalizling
@@ -23,6 +27,8 @@ class TestFramework(unittest.TestCase):
 
 		self.totalPrice = 0
 		self.totalTime = 0
+
+		self.field = 'Equals'
 		
 		self.report = {'ok': [], 'ko':[]}
 		
@@ -64,8 +70,6 @@ class TestFramework(unittest.TestCase):
 		self.mode = mode
 		self.ai = AI(self.mode)
 
-		cases = self.loadCases(cases)
-
 		for case in cases:
 
 			t = time.time()
@@ -75,7 +79,7 @@ class TestFramework(unittest.TestCase):
 			result = response['choices'][0]['message']['content']
 			
 			price = self.getPrice(response['usage'])
-			casePreview = case['q'][:40]+'…'
+			casePreview = case['q'][:80].replace(r"\n", " ")+'…'
 			
 			self.prompts += 1
 			self.totalTime += t
@@ -85,21 +89,28 @@ class TestFramework(unittest.TestCase):
 				t = round(t, 1)
 				
 				try:
-					assertion(result, case, t, price, casePreview)
+					assertion(result, case) #assertion(result, case, t, price, casePreview)
 					if 'ko' in case:
 						del case['ko']
 					case['price'] = price
 					self.report['ok'].append(case.copy())
 					self.passed += 1
-					print(f"""✅ {result}: "{casePreview}" """)
+					print(f"""✅ "{casePreview}" """)
 				except AssertionError:
 					case['ko'] = result
 					case['seconds'] = t
 					case['price'] = price
 					self.report['ko'].append(case.copy())
 					self.failed += 1
+					if self.field == 'Equals':
+						resultPreview = result
+					else:
+						resultPreview = self.field +": "+ convert.yaml2json(result)[self.field]
+					resultPreview = resultPreview.replace(r"\n", " ")
 					#raise
-					print(f"""❌ '{result}' != '{case['ok']}': "{casePreview}" """)
+					print(f"""❌ '{resultPreview}' INSTEAD '{case[self.field]}': "{casePreview}" """)
+				except Exception as e:
+					print("Error:", e)
 
 			time.sleep(self.delay)
 
@@ -121,10 +132,26 @@ Total price: ${self.totalPrice}
 class TestClassifier(TestFramework):
 
 	def test_classifier_classification(self):
-		def assertion(result, case, t, price, casePreview):
-			self.assertEqual(result, case['ok'], f'${price}/{t}s: {casePreview}')
-			# OR self.assertIn(case[required_attribute], result)   
-		self.run_sub_test_template("_classifier", "testdata/classified.yaml", assertion)
+		def assertion(result, case):
+			#self.assertEqual(result, case['ok'], f'${price}/{t}s: {casePreview}')
+			self.assertEqual(result, case['Equals'])
+			# OR self.assertIn(result, case['Keys'])   
+
+		cases = self.loadCases("testdata/classifier.yaml")
+		#cases = [case for case in cases if 'ko' in case]
+		#cases = cases[:1]
+		self.run_sub_test_template("_classifier", cases, assertion)
+
+	def test_yaml_classifier_classification(self):
+		def assertion(result, case):
+			result = convert.yaml2json(result)
+			#self.assertIn('service', case.keys())
+			for f in ('service', 'command', 'content_type'):
+				self.field = f
+				self.assertEqual(result[f].lower(), case[f].lower())
+
+		cases = self.loadCases("testdata/classifier.yaml")
+		self.run_sub_test_template("_classifier3", cases, assertion)
 
 
 
@@ -134,7 +161,7 @@ class TestClassifier(TestFramework):
 
 if __name__ == '__main__':
 	unittest.main()
-	"""suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestTranslate)
+	"""suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestClassifier)
 	result = unittest.TestResult()
 	suite.run(result)
 	print("Tests Run: ", result.testsRun)

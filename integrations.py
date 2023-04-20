@@ -8,17 +8,31 @@ import yaml
 import requests
 from bs4 import BeautifulSoup
 #import newspaper
+#import markdown
+#from rich.markdown import Markdown
+import html2text
 
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import imaplib
+import email
 
+demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
+- important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
+
+- Then there 2 other unread and 34 read mails.
+
+Do you want me to summarize them?
+		"""
 
 
 class Google:
 	def __init__(self):
 		self.APIkey = open('../google.key', "r").read()
 		self.gmailKey = open('../gmail.key', "r").read()
+
+		self.loginMail = "myneur@gmail.com"
 
 
 	def mailLast(self, data):
@@ -27,11 +41,11 @@ class Google:
 		return self.mail(me, me, subject, data['message'])
 
 	def mail(self, from_address, to_address, subject, body):
-		loginMail = "myneur@gmail.com"
+		
 
 		smtp_server = smtplib.SMTP('smtp.gmail.com', 587)
 		smtp_server.starttls()
-		smtp_server.login(loginMail, self.gmailKey)
+		smtp_server.login(self.loginMail, self.gmailKey)
 
 		#message = f'Subject: {subject}\n\n{body}'
 		msg = MIMEMultipart()
@@ -57,15 +71,65 @@ class Google:
 				print("{}: {}".format(mail['Contact'], mail['Subject']))
 				self.mail(from_address, to, mail['Subject'], mail['Subject'])
 
+	def read_mail(self, filters=None):
+		""" gets the last mail according to either IMAP criteria strong or dictionary """
+
+		mail = imaplib.IMAP4_SSL('imap.gmail.com')
+		mail.login(self.loginMail, self.gmailKey)
+		mail.select("INBOX")
+
+		if type(filters) == str:
+			query = filters
+		else:
+			query = []
+			if type(filters) is dict:
+				for key in filters.keys():
+					if key.upper() in ('FROM', 'TO', 'SUBJECT'): # TODO we only support these filters so far
+						if filters[key].lower() != 'none':
+							query.append(f'({key.upper()} "{filters[key]}")')
+			if len(query) == 0:
+				query.append('ALL')
+
+		print(query)
+		try:
+			status, messages = mail.search(None, *query)
+		except Exception as e:
+			print(f"Error: {type(e).__name__}: {e}, {e.args} ")
+
+		try:
+			last_message = messages[0].split()[-1]
+			status, data = mail.fetch(last_message, '(RFC822)')
+			message = email.message_from_bytes(data[0][1])
+		except:
+			return 'no such mail'
+
+		content = []
+		
+		#content = message.get_payload()
+
+		parts = message.walk() if message.is_multipart() else [message]
+		for part in parts:
+			if part.get_content_type() in ("text/plain", "text/html"):
+				text = part.get_payload(decode=True).decode('utf-8')
+				try: 
+					# TODO make it robuts to languages nad different clients: \n<p>On Thu, Apr 13, 2023 at 12:49\u202fPM Petr Meissner aka myneur <a href="...">...</a>\nwrote:</p>\n<blockquote>\n<p>...
+					before = re.split(r"\w+ \w+, \w+ \d+, \d+ \w+ \d+:\d+", text)[0]
+				except: 
+					print('no content')
+				text = html2text.html2text(text)
+				content.append(text)
+
+		for i, c in enumerate(content):
+			print(i)
+			print(c)
+		
+		content = content[0] 
+
+		return f"{message['From']}: {message['Subject']}\n{content}"
+
+
 	def summarizeMailbox(self):
-		return """
-- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
-- important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
-
-- Then there 2 other unread and 34 read mails.
-
-Do you want me to summarize them?
-		"""
+		return demoString
 
 	def scheduleMeeting(self, request):
 		try:
@@ -138,9 +202,6 @@ Do you want me to summarize them?
 			name = result["name"]
 			location = result["geometry"]["location"]
 			print(f"{name}: ({location['lat']}, {location['lng']})")
-
-
-
 
 
 class Splitter:
@@ -312,6 +373,45 @@ class Convertor:
 			firstSentences = text[:200]
 		return firstSentences
 
+	def blocksOfMD(self, text):
+		# match all markers by regexp
+		markers = [
+			[r"```", "```"],
+			[r"\d+\.\s+", "\n\n"],
+			[r"-\s+", "\n\n"], 
+			[r"\|", "|\n\n"]]
+
+
+		#markers = [r'(?m)^\s*```([\s\S]*?)```\s*$', r'^-\s+']
+		
+		"""for m in markers: 
+			blocks = re.split(m)
+		"""
+		for m in markers: 
+			m[0] = re.compile(m[0])
+		blocks = []
+		marker = False
+		lines = 0
+
+		for line in text.splitlines():
+			if marker:
+				if not re.search(marker[1], line):
+					blocks[-1] += "\n"+line
+				else:
+					marker = False
+					blocks[-1] += line
+					blocks.append('')
+			else:
+				for k in markers: 
+					if re.search(k[0], line):
+						marker = k
+						blocks.append(line)
+						break
+				if not marker:
+					if not len(blocks):
+						blocks.append('')
+					blocks[-1] += "\n" + line
+		return blocks
 
 class Stats:
 	stats = None

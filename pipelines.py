@@ -38,6 +38,8 @@ class Pipelines:
 		return str(text)
 
 	def classify(self, question):
+		""" executes a method in this class indicated by _classifier """
+
 		print("…classifying ")
 		if not self.classifier:
 			self.classifier = AI('_classifier')
@@ -74,10 +76,24 @@ class Pipelines:
 			print("Error: did not classify the languages.")
 		return output
 
-	def send_it(self, question): 
+
+	def read_message(self, text):
+		#filters = self.chat.ask(text, AI('text_to_imap'))
+		filters = self.chat.ask(text, AI('read_message'))
+		filters = self.convert.yaml2json(filters)
+		try:
+			filters.pop('service') # TODO ignoring other services so far, everything is mail for now
+			filters.pop('filters') # TODO needs more handling to be done
+		except:
+			pass
+		print(filters)
+		return self.google.read_mail(filters)
+
+
+	def send_recent(self, question): 
 		print('…preparing message')
 		chat = self.chat
-		response = chat.ask(question, AI('messenger'))
+		response = chat.ask(question, AI('send_recent'))
 		if response:
 			try:
 				data = self.convert.yaml2json(response)

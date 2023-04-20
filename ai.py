@@ -16,6 +16,8 @@ class AI:
 		self.model = model
 		self.messages = []
 		self.tokensUsed = 0
+		self.lastUsedTime = 0
+		self.refreshAfter = 60*60
 
 		self.stats = integrations.Stats()
 		
@@ -23,7 +25,8 @@ class AI:
 		if not AI.key:
 			with open('../private.key', 'r') as key:	# TODO read just once
 				AI.key = key.read().strip()
-		openai.api_key =  AI.key
+		
+		self.ensureAPIConnection()
 
 		if not AI.conf:
 			self.loadConfig()
@@ -36,6 +39,12 @@ class AI:
 
 		self.clearMessages()
 		
+	def ensureAPIConnection(self):
+		""" It does not work the first time after hours of inactivity: trying to debug how to make it robust: """
+		t = time.time()
+		if self.refreshAfter < t - self.lastUsedTime:
+			openai.api_key = AI.key
+		self.lastUsedTime = t
 
 	def loadConfig(self):
 		with open('config.yaml', 'r') as file:
@@ -48,6 +57,7 @@ class AI:
 
 	def voice2text(self, filename):
 		audio_file= open(filename, "rb")
+		self.ensureAPIConnection()
 		try:
 			t = time.time()
 			transcript = openai.Audio.transcribe("whisper-1", audio_file)
@@ -84,7 +94,10 @@ class AI:
 		if 'logit_bias' in params: 	# TODO words must be converted to integer tokens
 			params.pop('logit_bias')
 			
+		self.ensureAPIConnection()
+			
 		t = time.time()
+
 		try:
 			
 			# TODO retry with openai.ChatCompletion.create(**params)
@@ -97,15 +110,20 @@ class AI:
 			usage['items'] = len(response['choices'])
 			self.stats.add(usage, self.mode)
 		
-		except (openai.error.InvalidRequestError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
+		except openai.error.RateLimitError:
+			print("Error: ", "You are too fast for the OpenAI Service. Waiting 10 seconds…")
+			time.sleep(10)
+			return self.chat(question)
+
+		except (openai.error.InvalidRequestError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': e, 'time':t}
+			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
 
 		except Exception as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': e, 'time':t}
+			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
 
 		
 		messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))

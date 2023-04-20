@@ -11,7 +11,19 @@ modes: # default is 1st, underscored are hidden used by system
         messages:
             system: You are a helpful assistant.
             user: "{}"
-    translator:
+    writeFriend:
+        messages: 
+            system: |
+                Transform dictated text into a written message.
+                The Input was dictated and may be unstructured or contain mistakes. Details might be added gradually.
+                Keep the tone of voice, phrases and meaning of the Input unchanged. Don't elaborate and do not add new topics. Only when the phrasing is too verbose or cumbersome, make it shorter, but do not rephrase otherwise.
+            user: |
+                Input text:
+                {}
+
+                ---
+                Write a written message from the Input text in its original language. 
+    translate:
         goal: I translate sentences accurately and keep the meaning unchanged.
         version: 0.6
         messages:
@@ -115,7 +127,7 @@ modes: # default is 1st, underscored are hidden used by system
 #        pipeline: [nurse]
         model_params:
             temperature: 0
-    messenger:
+    send_message:
         goal: I transform requests to send a message to YAML for API calls
 #           TODO indentify multiple recipients
         version: 0.4
@@ -149,6 +161,53 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             temperature: 0
             stop: "###"
+    read_message:
+        messages:
+            system: |
+                You are a convertor that converts a REQUEST to search messages into the following YAML FORMAT according to INSTRUCTIONS. 
+
+                YAML FORMAT:
+                Service: "The mentioned service to search the messages in, like mail"
+                Subject: "What text it should contain in the subject, if any"
+                To: "Who the message should be to"
+                From: "Who the message should be from"
+
+                -----
+
+                INSTRUCTIONS:
+                Identify the recipient and sender in the REQUEST carefully. 
+                Convert any names to nominativ.
+                If you don't have an information file in 'none'.
+
+                Example: 
+                REQUEST:
+                Read last mail from Peter to Pavel
+                
+                -----
+                YAML FROMAT:
+                Service: "mail"
+                From: "Peter"
+                To: "Pavel"
+            user: |
+                REQUEST:
+                {}
+
+                -----
+                Now convert the REQUEST to the mentioned YAML FORMAT. 
+
+                YAML FORMAT:
+            remember: 0
+        model_params:
+            temperature: 0
+    text_to_imap:
+# TODO does not reliably provide valid IMAP search string
+        messages:
+            system: You are a convertor that converts a REQUEST to get a message into the IMAP search criterion format. Reply only with the IMAP search criterion. No other comments. 
+            user: |
+                Convert the following request into the IMAP search criterion format. 
+
+                REQUEST:
+                {}
     summarize:
         goal: I create brief summaries
         version: 0.1
@@ -180,51 +239,121 @@ modes: # default is 1st, underscored are hidden used by system
             user: "{}"
         model_params:
             temperature: 0.8
-    _classifier:
-        goal: Identify if the text contains a request for action.
-        version: 0.2
-        messages:
-            system: You are a classifier that detects whether the user has requested any following actions.
+    _improve:
+        goal: Suggest prompt change to fix result
+        messages: 
+            system: |
+                You are a guide who helps me to improve prompts of Chat GPT.
+
+                I'll give you the Chat GPT conversation I want you to debug as an input. 
+
+                The conversation to debug starts with the 'SYSTEM MESSAGE' right after this one. That system message instructed the Chat GPT how to handle the following conversation.
+                Consider the conversation to debug everything from that 'SYSTEM MESSAGE' up to the user message starting 'PROMPT' and the Chat GPT response starting with 'CHAT GPT REACTION'
+                Then, the message starting with 'EXPECTED REACTION' shows what reaction was expected.
+                Explain why the Chat GPT reacted by the 'CHAT GPT REACTION' and not the 'EXPECTED REACTION'.
+                Then suggest how to change either the 'SYSTEM MESSAGE' or the 'PROMPT' or both to make Chat GPT react by the 'EXPECTED REACTION' instead.
+                Consider the PROMPT to be general. It must work reliably for any USER INPUT. 
+                You can not suggest any changes to USER TEXT, USER INPUT or REQUEST. Suggest only changes outside of these parts of the PROMPT. 
+
+# I give you an example of PROMPT that contains a USER INPUT or REQUEST, how the GPT-3 reacted (CURRENT REACTION) and how I want it to react (EXPECTED REACTION). You give me a suggestion how to change the INSTRUCTIONS so it will react by the EXPECTED REACTION to the same USER INPUT. USER INPUT and REQUEST can't be changed. Only rest of the prompt can be changed.
             user: |
-                Detect if text starts with a request for any of the next actions:
+                EXPECTED REACTION:
+                {}
 
-                Actions:
-                - send_it: direct request to send the last message or just 'it' by a message, mail or text.
-                - write: write a mail with the given text
-                - inbox: read or summarize my inbox
-                - calendar: schedule a meeting, or send  ameeting request
-                - todos: add or modify a to-do list or take a note
+                Now suggest how to change either the 'SYSTEM MESSAGE' or the part of the 'PROMPT' to make Chat GPT react by the 'EXPECTED REACTION' instead of the 'CHAT GPT REACTION'. 
+                You can not suggest changes in the USER TEXT, USER INPUT or REQUEST. Suggest only changes outside of these parts of the PROMPT. 
+        model_params:
+            temperature: 0
+#            model: 'gpt-4'
+    _classifier:
+        goal: I identify requests to perform actions
+        version: 0.3
+        messages:
+            system: You are a classifier that detects whether the user has requested an action to be done with third party services.
+            user: |
+                Detect whether the given INPUT TEXT starts with a request to do any of the following ACTIONS.
+
+                ACTIONS:
+                - send_recent: direct request to send our recent message or conversation in this conversation. The request must refer to our conversation in this chat, our discussion or the last message. Short requests like "send it" classify here as well if there is no other thing that the 'it' can refer to.
+                - read_message: direct request to get or read mail
+                - incoming: summarize or get overview what's in my inbox.
+                - compose_message: compose, send, create, prepare a text or message for a given recipient. The recipient must be identified.
+                - write: create or prepare a text. The recipient is not identified.
+                - calendar: schedule a meeting or send a meeting request
+                - note: create or take a note or read, update or search notes
+                - todos: add, modify or read a to-do list or tasks to do
                 - maps: find venues in a given location or get driving directions or commuting time to a location
-                - command: max few words starting with synonyms of (be, become)
+                - mode_change: direct request to change a mode of operation to any of the following modes: (assistant, translator, writer, corrector, fairy taler)
 
-                You are not allowed to reply anything except the word representing one action above: send_it, todos or maps. 
-                Reply only with exactly 1 word representing the Action.
-                If text does not start with a request for any of these actions, reply with none.
+                GUIDANCE:
+                Always reply just with 1 word or compound word if user asked to perform any of the ACTIONS  . 
+                When the INPUT TEXT does not match any of the ACTIONS, reply: none.
 
-                Examples:
-                Text: What's in my inbox?
-                Action: inbox
+                ---
 
-                Text: Take a note to pick up groceries
-                Action: todos
+                INPUT TEXT:
+                {}
 
-                Text: Send it to me by an email.
-                Action: send_it
+                ---
+                Action:
+            remember: 0
+        model_params:
+            temperature: 0
+            max_tokens: 512
+            stop: "###"
+    _classifier2:
+        goal: WIP of more general classifier to be finished. I identify requests to perform actions
+        version: 0.4
+        messages:
+            system: You are a classifier that detects whether the user has requested an action to be done with a third party services.
+            user: |
+                INSTRUCTIONS:
+                Detect whether the INPUT TEXT contains any of the following commands to be performed with any of the following services. 
 
-                Text: What are best restaurants around?
-                Action: maps
+                COMMANDS:
+                - Create, compose, write, prepare
+                - Read, find, search, locate
+                - Reply
+                - Update, edit, change
+                - Delete, remove, erase
+                - Send
+                - Summarize
+                - Translate
 
-                Text: Připrav text, který bude začínat oslovením čau a následující větou.
-                Action: none
+                SERVICES:
+                - Mail, email, message, SMS, inbox
+                - Text, note
+                - Calendar, meeting
+                - Task, to-do list
+                - Maps, venue, place
+                - Directions, commute time
+                - Website, web page, internet
+                - News
 
-                Text: be my assistant.
-                Action: command
+                CONTENT_TYPE:
+                - History: user refered to last conversation or message 
+                - Content: user provided a specific text
+                - Creation: user requested what content should be prepared according to his instructions
+                
+                YAML FORMAT:
+                service: IDENTIFIER
+                command: IDENTIFIER
+                content_type: IDENTIFIER
 
-                Text: be a translator.
-                Action: command
+                ---
 
-                Text: {}
-                Action: 
+                GUIDANCE:
+                Consider all words in each row of the lists above and their synonyms to be the same. 
+                If the given input INPUT TEXT contains a request to perform any of the commands over services above, reply with the first word on the line as na IDENTIFIER.
+                If the INPUT TEXT does not request to perform any of the commands over services above, reply with 'none'.
+                Reply in YAML format.
+
+                ---
+
+                Now process the INPUT TEXT according to the INSTRUCTIONS and GUIDANCE.
+
+                INPUT TEXT:
+                {}
             remember: 0
         model_params:
             temperature: 0
