@@ -9,7 +9,7 @@ import traceback
 class Pipelines:
 	def __init__(self, chat):
 		self.convert = integrations.Convertor()
-		self.google = integrations.Google()
+		self.services = integrations.Services()
 		self.classifier = None
 		self.chat = chat
 
@@ -86,8 +86,7 @@ class Pipelines:
 			filters.pop('filters') # TODO needs more handling to be done
 		except:
 			pass
-		print(filters)
-		return self.google.read_mail(filters)
+		return self.services.read_mail(filters)
 
 
 	def send_recent(self, question): 
@@ -116,7 +115,7 @@ class Pipelines:
 					data['summary'] = summary if summary else "Our last conversation"
 					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['recipients'], data['service'], data['summary'])
 
-					self.google.mailLast({'message': data['message'], 'mail': data['recipients'], 'subject': data['summary']})
+					self.services.mailLast({'message': data['message'], 'mail': data['recipients'], 'subject': data['summary']})
 				except Exception as e:
 					print(f"Error: {type(e).__name__}: {e}, {e.args} ")
 					traceback.print_exc()
@@ -126,14 +125,32 @@ class Pipelines:
 				print("Error in creating the message. Needs review:(")
 			return response
 
+	def improve_prompt(self, question=""):
+		explainer = AI("_improve")
+		explainer.messages += self.chat.messages
+		
+		if not question:
+			print("What was the expected output?")
+			question = input()
+
+		explainer.messages[1]['content'] = "SYSTEM MESSAGE:\n"+explainer.messages[1]['content']
+		explainer.messages[-2]['content'] = "PROMPT:\n"+explainer.messages[-2]['content']
+		explainer.messages[-1]['content'] = "CHAT GPT REACTION:\n"+explainer.messages[-1]['content']
+		
+		question = "EXPECTED REACTION:\n"+ question
+		print("…debugging")
+		reply = explainer.chat(question)
+		self.chat.reply(reply['choices'][0]['message']['content']) # TODO handle errors
+		return reply
+
 	def inbox(self, question):
 		print('…summarizing inbox')
 		time.sleep(3)
-		return self.google.summarizeMailbox()
+		return self.services.summarizeMailbox()
 
 	def calendar(self, question):
 		print('…summarizing inbox')
-		return self.google.scheduleMeeting(question)
+		return self.services.scheduleMeeting(question)
 
 
 	def write(self, question):

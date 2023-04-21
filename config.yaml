@@ -181,7 +181,7 @@ modes: # default is 1st, underscored are hidden used by system
 
                 Example: 
                 REQUEST:
-                Read last mail from Peter to Pavel
+                Read me the last mail from Peter to Pavel
                 
                 -----
                 YAML FROMAT:
@@ -199,6 +199,7 @@ modes: # default is 1st, underscored are hidden used by system
             remember: 0
         model_params:
             temperature: 0
+            model: 'gpt-4'
     text_to_imap:
 # TODO does not reliably provide valid IMAP search string
         messages:
@@ -458,9 +459,3 @@ models:
         text-davinci-003: 
             limit: 2049
             price: 0.02
-languages:
-    - Czech
-    - English
-me:
-    mail: "petr@sl8.ch"
-    name: Petr

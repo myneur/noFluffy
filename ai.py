@@ -33,9 +33,7 @@ class AI:
 
 		self.mode = mode if mode else list(AI.modes.keys())[0]
 
-		# TODO should be in user storage instead of conf
-		self.languages = AI.conf['languages']
-		self.me = AI.conf['me']
+		self.memory = integrations.Memory()
 
 		self.clearMessages()
 		
@@ -180,9 +178,9 @@ class AI:
 				pass
 		try:
 			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
-				self.messages = [self.messageFromTemplate('system', [", ".join(self.languages)])] + self.messages;
+				self.messages = [self.messageFromTemplate('system', [", ".join(self.memory.data['languages'])])] + self.messages;
 		except Exception as e:
-			print(e)
+			print(f"Error: {type(e).__name__}: {e}")
 
 	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append(self.messageFromTemplate('user', question))

@@ -26,13 +26,22 @@ demoString = """- You have a reply from Mark regarding designs, asking for ideas
 Do you want me to summarize them?
 		"""
 
+class Memory:
+	def __init__(self):
+		self.load()
 
-class Google:
+	def load(self):
+		with open('memory.yaml', 'r') as file:
+			Memory.data = yaml.safe_load(file)
+
+class Services:
 	def __init__(self):
 		self.APIkey = open('../google.key', "r").read()
 		self.gmailKey = open('../gmail.key', "r").read()
 
-		self.loginMail = "myneur@gmail.com"
+		self.memory = Memory()
+
+		self.loginMail = self.memory.data['me']['mail']
 
 
 	def mailLast(self, data):
@@ -64,10 +73,11 @@ class Google:
 	def populateTestMailbox(self):
 		#mails = yaml.safe_load(open('logs/in.yaml', 'r'))
 		to = "Petr Meissner <petr@sl8.ch>"
+		dummyMail = self.data['me']['mail']
 		mails = [{'Contact': "Mark", 'Subject':"Design Approval Request"}]
 		if( input() == 'yes'):
 			for mail in mails:
-				from_address = mail['Contact'] + " <myneur@gmail.com>"
+				from_address = mail['Contact'] + dummyMail
 				print("{}: {}".format(mail['Contact'], mail['Subject']))
 				self.mail(from_address, to, mail['Subject'], mail['Subject'])
 
@@ -86,22 +96,24 @@ class Google:
 				for key in filters.keys():
 					if key.upper() in ('FROM', 'TO', 'SUBJECT'): # TODO we only support these filters so far
 						if filters[key].lower() != 'none':
-							query.append(f'({key.upper()} "{filters[key]}")')
+							query.append(f'({key.upper()} "{filters[key]}")'.encode('utf-8'))
 			if len(query) == 0:
 				query.append('ALL')
-
-		print(query)
+			print(str(query))
 		try:
 			status, messages = mail.search(None, *query)
 		except Exception as e:
 			print(f"Error: {type(e).__name__}: {e}, {e.args} ")
+
+		#filters.encode('utf-8')
+		#unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
 
 		try:
 			last_message = messages[0].split()[-1]
 			status, data = mail.fetch(last_message, '(RFC822)')
 			message = email.message_from_bytes(data[0][1])
 		except:
-			return 'no such mail'
+			return "no such mail matches: "+str(query)
 
 		content = []
 		
@@ -373,7 +385,33 @@ class Convertor:
 			firstSentences = text[:200]
 		return firstSentences
 
-	def blocksOfMD(self, text):
+	def MD2Blocks(_, text):
+		objectTypes = {
+			'code': r'(?m)^\s*```(\w*)([\s\S]*?)```\s*$', 
+			'list': r"^(?: *[\*\-+]|\d+\.)[^\n]*$", 
+			'table': r"^[|].*[|]$([\n^[|].*[|]$]+)?"}
+
+		
+		#blocks = [{'type': 'none', 'text': text}]
+		# TODO detect all markdown
+
+		objects = re.split(objectTypes['code'], text)
+		i = 0
+		for i, item in enumerate(objects): 
+			objects[i] = {'text': item} 
+			if i%2:
+				objects[i]['type'] = 'code'#+ match.group(1)
+			else:
+				objects[i]['type'] = 'text'
+				#console.print(block, style=Style(bgcolor="gray"))
+
+		#linelength = len(text.split('\n')[0])
+		#text = re.sub(codeblocks, r'\n' + '–'*10 + r'\n```\1```\n' + '–'*10 + '\n', text)
+		#text = Markdown(text)
+		blocks = objects
+		return blocks
+
+	def WIPblocksOfMD(self, text):
 		# match all markers by regexp
 		markers = [
 			[r"```", "```"],

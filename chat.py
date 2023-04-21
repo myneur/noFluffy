@@ -37,7 +37,7 @@ class Chat:
 		self.ai = AI()
 		self.convert = integrations.Convertor()
 		self.pipeline = Pipelines(self)
-		self.google = integrations.Google()
+		self.services = integrations.Services()
 
 		self.logger = integrations.Logger()
 		
@@ -58,7 +58,7 @@ class Chat:
 			rprint("   {} messages, {} tokens".format(cnt, self.ai.tokensUsed))
 		print()
 
-	def go(self): 
+	def main(self): 
 		self.guide()
 
 		while True:
@@ -138,18 +138,7 @@ class Chat:
 
 			# explain last response
 			elif 'i' == prompt:
-				explainer = AI("_improve")
-				explainer.messages += self.ai.messages
-				print("What was the expected output?")
-				question = input()
-
-				explainer.messages[1]['content'] = "SYSTEM MESSAGE:\n"+explainer.messages[1]['content']
-				explainer.messages[-2]['content'] = "PROMPT:\n"+explainer.messages[-2]['content']
-				explainer.messages[-1]['content'] = "CHAT GPT REACTION:\n"+explainer.messages[-1]['content']
-				question = "EXPECTED REACTION:\n"+question
-				print("…debugging")
-				reply = explainer.chat(question)
-				self.reply(reply['choices'][0]['message']['content']) # TODO handle errors
+				pipeline.improve()
 
 			# print messages
 			elif 'm' == prompt:
@@ -176,7 +165,7 @@ class Chat:
 				last = self.ai.getLastReply()
 				if last:
 					last['mail'] = self.ai.me['mail']
-					print('Sent') if self.google.mailLast(last) else print('Failed')
+					print('Sent') if self.services.mailLast(last) else print('Failed')
 				else: 
 					print('No messages')
 
@@ -266,37 +255,11 @@ class Chat:
 		
 	def reply(self, response, say=True):
 		if response:
-			self.printBlocks(self.MD2Blocks(response))
+			self.printBlocks(self.convert.MD2Blocks(response))
 			#print(response)
 			if say:
 				self.say.say(response)
 			self.guide()
-
-	def MD2Blocks(_, text):
-		objectTypes = {
-			'code': r'(?m)^\s*```(\w*)([\s\S]*?)```\s*$', 
-			'list': r"^(?: *[\*\-+]|\d+\.)[^\n]*$", 
-			'table': r"^[|].*[|]$([\n^[|].*[|]$]+)?"}
-
-		
-		#blocks = [{'type': 'none', 'text': text}]
-		# TODO detect all markdown
-
-		objects = re.split(objectTypes['code'], text)
-		i = 0
-		for i, item in enumerate(objects): 
-			objects[i] = {'text': item} 
-			if i%2:
-				objects[i]['type'] = 'code'#+ match.group(1)
-			else:
-				objects[i]['type'] = 'text'
-				#console.print(block, style=Style(bgcolor="gray"))
-
-		#linelength = len(text.split('\n')[0])
-		#text = re.sub(codeblocks, r'\n' + '–'*10 + r'\n```\1```\n' + '–'*10 + '\n', text)
-		#text = Markdown(text)
-		blocks = objects
-		return blocks
 
 	def printBlocks(_, blocks):
 		for block in blocks:
@@ -305,7 +268,6 @@ class Chat:
 				rprint("——————————"+block['text'])
 			else: 
 				rprint(block['text'])
-
 
 	def copy2clipboard(self, text):
 		print(text)
