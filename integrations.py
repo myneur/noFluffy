@@ -19,6 +19,8 @@ import imaplib
 import email
 import chardet
 
+from pytube import YouTube
+
 demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
 - important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
 
@@ -226,15 +228,15 @@ class Splitter:
 		with open(filename, 'w') as f:
 			json.dump(data, f)
 
-
 class Scraper:
-	def YTAudio(self, url):
+
+	def youtube(self, url):
 		yt = YouTube(url)
 		audio_stream = yt.streams.filter(only_audio=True).first()
 		audio_stream.download(filename_prefix="audio_")
 		return audio_stream
 
-	def webContent(self, url, tag="article"):
+	def web(self, url, tag="article"):
 		response = requests.get(url)
 		html_content = response.content
 
