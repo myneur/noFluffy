@@ -108,6 +108,7 @@ class Chat:
 		
 		# multiline input
 		elif prompt and '\\' == prompt[-1]:
+			prompt = prompt[:-1]
 			enterCount = 0
 			while enterCount <= 1:
 				line = input()

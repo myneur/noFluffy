@@ -81,6 +81,7 @@ class Pipelines:
 		#filters = self.chat.ask(text, AI('text_to_imap'))
 		filters = self.chat.ask(text, AI('read_message'))
 		filters = self.convert.yaml2json(filters)
+		filters = self.convert.remove_empty(filters)
 		try:
 			filters.pop('service') # TODO ignoring other services so far, everything is mail for now
 			filters.pop('filters') # TODO needs more handling to be done
@@ -103,7 +104,11 @@ class Pipelines:
 		body = self.convert.links_to_preview(body)
 
 		self.chat.ai.add_message(text)
-		text = f"{message['From']}: {message['Subject']}\n{body}"
+
+		try:
+			text = f"{message['From']}: {message['Subject']}\n{body}"
+		except:
+			text = body
 
 		return text
 

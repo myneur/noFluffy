@@ -18,6 +18,7 @@ from email.mime.multipart import MIMEMultipart
 import imaplib
 import email
 import chardet
+from unidecode import unidecode
 
 from pytube import YouTube
 
@@ -67,7 +68,6 @@ class Services:
 
 	def read_mail(self, filters=None):
 		""" gets the last mail according to either IMAP criteria strong or dictionary """
-
 		mail = imaplib.IMAP4_SSL('imap.gmail.com')
 		mail.login(self.loginMail, self.gmailKey)
 		mail.select("INBOX")
@@ -82,30 +82,55 @@ class Services:
 					keyword = filters[key]
 					if field in ('FROM', 'TO', 'SUBJECT'): # TODO we only support these filters so far
 						if keyword.lower() in ('none', ''):
-							continue
+							break
+
+						keyword = unidecode(keyword)
+						#keyword = imaplib.IMAP4.literal(keyword).decode('utf-8')
+						#keyword = keyword.encode('utf-8')
+
+						#f'(OR FROM "*{keyword}*" header FROM *{keyword}*)'
+							
 						if field == 'SUBJECT': 
-							field = f'(OR SUBJECT {keyword} BODY {keyword})'
+							field = f'(OR (SUBJECT "{keyword}") (BODY "{keyword}"))'
 						else:
-							field = f'({field} "{keyword}")'
-						query.append(field.encode('utf-8'))
+							field = f'{field} "{keyword}"'
+
+						#field = field.encode('utf-8')
+						query.append(field)
 			if len(query) == 0:
 				query.append('ALL')
-			print(str(query))
 		try:
-			status, messages = mail.search(None, *query)
+
+			#search_query = f'X-GM-RAW "from:*{keyword}* to:*{keyword}* subject:*{keyword}*"'
+			#search_query = f'X-GM-RAW "subject:*Krkonosich*"'
+			#mail.literal = filters['subject'].encode('UTF-8')
+			#status, messages = mail.uid('search', None, 'CHARSET UTF-8 SUBJECT')
+			#status, messages = mail.search(None, search_query)
+
+			status, messages = mail.search('utf-8', *query)
+			#status, messages = mail.search(None, 'X-GM-RAW', *query)
+
 		except Exception as e:
-			print(f"Error: {type(e).__name__}: {e}, {e.args} ")
+			return {'content': f"{type(e).__name__}: {e} \n {str(query)}"}
 
 		#filters.encode('utf-8')
 		#unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
 
 		try:
 			last_message = messages[0].split()[-1]
+
 			status, data = mail.fetch(last_message, '(RFC822)')
+			#status, data = mail.uid("fetch", last_message, "(RFC822)")
+
+
 			message = email.message_from_bytes(data[0][1])
 		except:
 			mail.close()
 			mail.logout()
+			try:
+				query = ' '.join(query.decode())
+			except:
+				pass
 			return {'content': "no such mail matches: "+str(query)}
 
 		content = ""
@@ -328,6 +353,14 @@ class Convertor:
 		if text.startswith(("'", '"')) and text[0] == text[-1]:
 			text = text[1:-1]
 		return text
+
+	def remove_empty(self, dictionary):
+		new = {}
+		for key in dictionary.keys():
+			if dictionary[key].lower().replace('none', ''):
+				new[key] = dictionary[key]
+		return new
+
 
 	def links_to_preview(self, text):
 		link = r"(https?://)?([a-z0-9-]+\.)+([a-z]{2,})(/[^\s]*)?"
