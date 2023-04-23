@@ -61,147 +61,90 @@ class Chat:
 	def main(self): 
 		self.guide()
 
+		""" Launches functions based on user input """
+		escape = '\x1b'
+
 		while True:
 			prompt = input()
 
-			# paste prompt from clipboard
-			if 'p' == prompt:
-				prompt = self.pasteClipboard()
-			"""elif 'r' == prompt: # retry voice reco (if it failed)
-				# might be handy also to play it
-				self.rec.recording = True;
-				#TBD"""
-
-			# ask by voice
-			if self.rec.recording and len(prompt) == 0:
-				file = self.rec.stop()
-				print('…recognizing')
-				transcript = self.ai.voice2text(file)
-				if not transcript:
-					if transcript == False:
-						mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
-					elif transcript == "":
-						mess = "No input.\n"
-					else:
-						mess = "No internet. Connect it.\n"
-					print(mess)
-					self.say.say(mess)
-					continue
-				os.system('clear')
-				
-				text = transcript.text
-				print(text+'\n'); 
-				self.run(text, True)
-
-
-			# Exit 
-			elif prompt.lower() in['\x1b', 'exit', 'esc']: # ESC
+			# Exit by Escape
+			if prompt == escape:
 				s = self.ai.stats.print()
 				self.logger.log(s)
 				break
 
-			# Service controls
+			if self.rec.recording and len(prompt) == 0:
+				self.transcript_recording()
 
-			# Clear history or remove messages
-			elif prompt.isdigit() or (len(prompt)>1 and prompt[0]=='-' and prompt[1:].isdigit()):
-				self.ai.clearMessages(int(prompt))
-				os.system('clear')
-				print("Only last {} messages kept".format(prompt) if int(prompt) else "Messages cleared")
-				self.guide()
-
-			# reload config
-			elif '<' == prompt:
-				self.ai.loadConfig()
-				self.ai.clearMessages()
-
-			# last response to data structure
-			elif prompt.startswith('>'): # >model>value
-				try:
-					data = self.convert.yaml2json(self.ai.messages[-1]['content'])
-					print(data)
-					groups = prompt.split('>')
-					if len(groups)>2:
-						self.convert.saveAsCases(data, groups[1].strip(), groups[2].strip())
-				except Exception as e:
-					print(e)
-
-			# toggle functions/classifier
-			elif 'f' == prompt:
-				if self.execute == self.pipeline.execute: 
-					self.execute = self.pipeline.classify
-					status = "'on'"
-				else:
-					self.execute = self.pipeline.execute
-					status = 'off'
-
-				rprint("Functions {}".format(status))
-
-			# explain last response
-			elif 'i' == prompt:
-				pipeline.improve()
-
-			# print messages
-			elif 'm' == prompt:
-				for message in self.ai.messages:
-					print(message['content'])
-
-			# log a comment
-			elif 'l' == prompt:
-				print("Type note to log")
-				self.logger.log('- note: '+input())
-
-			# copy reply to clipboard
-			elif 'c' == prompt:
-				reply = self.ai.getLastReply()
-				if reply:
-					self.copy2clipboard(reply['message'])
-
-			# change model version
-			elif 'v' == prompt:
-				print(self.ai.switchModel() +' model chosen')
-
-			# mail last reply
-			elif '@' == prompt:
-				last = self.ai.getLastReply()
-				if last:
-					last['mail'] = self.ai.me['mail']
-					print('Sent') if self.services.mailLast(last) else print('Failed')
-				else: 
-					print('No messages')
-
-			# switch model
-			elif prompt in AI.modes.keys():
-				self.ai = AI(prompt)
-				print(f'switched to "{prompt}"')
-
-			# ask by text prompt
 			else:
-				# repeat last question
-				if 're' == prompt: #repeating question
-					self.run()
+				functions = {
+					'<': (lambda x: (self.ai.load_config(), self.ai.clear_messages())),
+					'>': self.response_to_JSON,
+					'f': self.toggle_functions,
+					'i': self.pipeline.improve_prompt,
+					'm': self.print_messages,
+					'l': (lambda x: (print("Type note to log"), self.logger.log('- note: '+input()))),
+					'p': (lambda x: self.get_input(self.paste())),
+					'c': self.copy_last_message_to_clipboard,
+					'v': self.switch_model,
+					'@': self.mail_last_message
+					}
+				if prompt in functions.keys():
+					functions[prompt](prompt)
 				
-				# multiline input
-				elif prompt and '\\' == prompt[-1]:
-					enterCount = 0
-					while enterCount <= 1:
-						line = input()
-						prompt += '\n'+ line;
-						if line == '':
-							enterCount += 1
-						else:
-							enterCount = 0
+				elif prompt.isdigit() or (len(prompt)>1 and prompt[0]=='-' and prompt[1:].isdigit()):
+					self.clear_messages(prompt)
 
-					self.run(prompt)
+				elif prompt in AI.modes.keys():
+					self.switch_AI(prompt)
 
-				# single line input
-				elif len(prompt) >= self.minChars:
-					self.run(prompt)
-				
-				# start listening when he hit just the enter and no other request detected
 				else:
-					print('Speak!\r\nENTER to get reply!')
-					self.say.stop()
-					self.rec.rec()
+					self.get_input(prompt)
+
+	def get_input(self, prompt):
+
+		if 're' == prompt: #repeating question
+			self.run()
+		
+		# multiline input
+		elif prompt and '\\' == prompt[-1]:
+			enterCount = 0
+			while enterCount <= 1:
+				line = input()
+				prompt += '\n'+ line;
+				if line == '':
+					enterCount += 1
+				else:
+					enterCount = 0
+
+			self.run(prompt)
+
+		# single line input
+		elif len(prompt) >= self.minChars:
+			self.run(prompt)
+		
+		# start listening when he hit just the enter and no other request detected
+		else:
+			print('Speak!\r\nENTER to get reply!')
+			self.say.stop()
+			self.rec.rec()
+
+	def toggle_functions(self, prompt=None):
+		if self.execute == self.pipeline.execute: 
+			self.execute = self.pipeline.classify
+			status = "'on'"
+		else:
+			self.execute = self.pipeline.execute
+			status = 'off'
+
+		rprint("Functions {}".format(status))
+
+	def switch_AI(self, prompt):
+		self.ai = AI(prompt)
+		print(f'switched to "{prompt}"')
+
+	def switch_model(self, prompt=None):
+		print(self.ai.switch_model() +' model chosen')
 
 	def run(self, question, voice_recognized=False): 
 
@@ -222,6 +165,27 @@ class Chat:
 
 		#print(str(round(sum(s),1)) + "s = "+ " + ".join(map(lambda x: str(round(x, 1))+"s", s)))
 		return response
+
+	def transcript_recording(self):
+		file = self.rec.stop()
+		print('…recognizing')
+		transcript = self.ai.voice_to_text(file)
+		if not transcript:
+			if transcript == False:
+				mess = 'Sorry the voice recognition is currently down. Please try again in a while\n'
+			elif transcript == "":
+				mess = "No input.\n"
+			else:
+				mess = "No internet. Connect it.\n"
+			print(mess)
+			self.say.say(mess)
+			return False
+		os.system('clear')
+		
+		text = transcript.text
+		print(text+'\n'); 
+		self.run(text, True)
+		return text
 
 	def ask(self, question, ai=None):
 		if ai == None:
@@ -255,13 +219,13 @@ class Chat:
 		
 	def reply(self, response, say=True):
 		if response:
-			self.printBlocks(self.convert.MD2Blocks(response))
+			self.print_blocks(self.convert.split_to_MD_blocks(response))
 			#print(response)
 			if say:
 				self.say.say(response)
 			self.guide()
 
-	def printBlocks(_, blocks):
+	def print_blocks(_, blocks):
 		for block in blocks:
 			block['text'] = block['text'].replace('[', "\\[") # rich library uses that as formatting
 			if block['type'] == 'code':
@@ -269,16 +233,51 @@ class Chat:
 			else: 
 				rprint(block['text'])
 
-	def copy2clipboard(self, text):
-		print(text)
-		subprocess.Popen('pbcopy', stdin=subprocess.PIPE, universal_newlines=True).communicate(text)
-		self.pasteClipboard()
+	def copy_last_message_to_clipboard(self, prompt=None):
+		reply = self.ai.get_last_reply()
+		if reply:
+			text = reply['message']
+			print(text)
+			subprocess.Popen('pbcopy', stdin=subprocess.PIPE, universal_newlines=True).communicate(text)
 
-	def pasteClipboard(_):
+	def paste(_):
 		'cs_CZ.UTF-8'
 		text = subprocess.check_output('pbpaste', env={'LANG': 'en_US.UTF-8'}).decode('utf-8')
 		print(text)
 		return text
+
+	def clear_messages(self, keep):
+		self.ai.clear_messages(int(keep))
+		os.system('clear')
+		print("Only last {} messages kept".format(keep) if int(keep) else "Messages cleared")
+		self.guide()
+
+	def mail_last_message(self, prompt=None):
+		message = self.ai.get_last_reply()
+		if message:
+			mem = self.ai.memory.data
+			sender = f"{mem['assistant']['name']}<{mem['assistant']['mail']}>"
+			subject = message['subject'] if 'subject' in message else "Note to myself"
+			if self.services.send_mail(sender, mem['me']['mail'], subject, message['message']):
+				print('Sent')
+			else: 
+				print('Failed')
+
+		else: 
+			print('No messages')
+
+	def print_messages(self, prompt=None):
+		for i, message in enumerate(self.ai.messages):
+			print(str(i) + ":")
+			print(message['content'], "\n")
+
+	def response_to_JSON(self, prompt):
+		try:
+			data = self.convert.yaml2json(self.ai.messages[-1]['content'])
+			self.convert.save_cases(data, input("What model are the data for: "), input("Expected value or comma separated fields in that model: "))
+		except Exception as e:
+			print(e)
+
 
 class Recorder:
 	def __init__(self):

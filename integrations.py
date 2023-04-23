@@ -17,6 +17,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import imaplib
 import email
+import chardet
 
 demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
 - important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
@@ -31,7 +32,7 @@ class Memory:
 		self.load()
 
 	def load(self):
-		with open('memory.yaml', 'r') as file:
+		with open('data/memory.yaml', 'r') as file:
 			Memory.data = yaml.safe_load(file)
 
 class Services:
@@ -44,14 +45,7 @@ class Services:
 		self.loginMail = self.memory.data['me']['mail']
 
 
-	def mailLast(self, data):
-		me = 'Voicelet assistant<'+data['mail']+'>'
-		subject = data['subject'] if 'subject' in data else "Note to myself"
-		return self.mail(me, me, subject, data['message'])
-
-	def mail(self, from_address, to_address, subject, body):
-		
-
+	def send_mail(self, from_address, to_address, subject, body):
 		smtp_server = smtplib.SMTP('smtp.gmail.com', 587)
 		smtp_server.starttls()
 		smtp_server.login(self.loginMail, self.gmailKey)
@@ -63,23 +57,11 @@ class Services:
 		msg['Subject'] = subject
 		msg.attach(MIMEText(body, 'plain'))
 
-
 		smtp_server.sendmail(from_address, to_address, msg.as_string())
 
 		smtp_server.quit()
 
 		return True
-
-	def populateTestMailbox(self):
-		#mails = yaml.safe_load(open('logs/in.yaml', 'r'))
-		to = "Petr Meissner <petr@sl8.ch>"
-		dummyMail = self.data['me']['mail']
-		mails = [{'Contact': "Mark", 'Subject':"Design Approval Request"}]
-		if( input() == 'yes'):
-			for mail in mails:
-				from_address = mail['Contact'] + dummyMail
-				print("{}: {}".format(mail['Contact'], mail['Subject']))
-				self.mail(from_address, to, mail['Subject'], mail['Subject'])
 
 	def read_mail(self, filters=None):
 		""" gets the last mail according to either IMAP criteria strong or dictionary """
@@ -94,9 +76,16 @@ class Services:
 			query = []
 			if type(filters) is dict:
 				for key in filters.keys():
-					if key.upper() in ('FROM', 'TO', 'SUBJECT'): # TODO we only support these filters so far
-						if filters[key].lower() != 'none':
-							query.append(f'({key.upper()} "{filters[key]}")'.encode('utf-8'))
+					field = key.upper()
+					keyword = filters[key]
+					if field in ('FROM', 'TO', 'SUBJECT'): # TODO we only support these filters so far
+						if keyword.lower() in ('none', ''):
+							continue
+						if field == 'SUBJECT': 
+							field = f'(OR SUBJECT {keyword} BODY {keyword})'
+						else:
+							field = f'({field} "{keyword}")'
+						query.append(field.encode('utf-8'))
 			if len(query) == 0:
 				query.append('ALL')
 			print(str(query))
@@ -113,37 +102,47 @@ class Services:
 			status, data = mail.fetch(last_message, '(RFC822)')
 			message = email.message_from_bytes(data[0][1])
 		except:
-			return "no such mail matches: "+str(query)
+			mail.close()
+			mail.logout()
+			return {'content': "no such mail matches: "+str(query)}
 
-		content = []
+		content = ""
 		
 		#content = message.get_payload()
 
 		parts = message.walk() if message.is_multipart() else [message]
 		for part in parts:
 			if part.get_content_type() in ("text/plain", "text/html"):
-				text = part.get_payload(decode=True).decode('utf-8')
+				try:
+					payload = part.get_payload(decode=True)
+					detected_encoding = chardet.detect(payload)
+					text = payload.decode(detected_encoding['encoding'])
+				except Exception as e:
+					print(f"Error: {type(e).__name__}: {e}")
 				try: 
 					# TODO make it robuts to languages nad different clients: \n<p>On Thu, Apr 13, 2023 at 12:49\u202fPM Petr Meissner aka myneur <a href="...">...</a>\nwrote:</p>\n<blockquote>\n<p>...
-					before = re.split(r"\w+ \w+, \w+ \d+, \d+ \w+ \d+:\d+", text)[0]
+					text = re.split(r"\w+ \w+, \w+ \d+, \d+ \w+ \d+:\d+", text)[0]
 				except: 
 					print('no content')
-				text = html2text.html2text(text)
-				content.append(text)
+				content = text
 
-		for i, c in enumerate(content):
+		"""for i, c in enumerate(content):
 			print(i)
-			print(c)
+			print(c)"""
 		
-		content = content[0] 
+		content = html2text.html2text(content)
 
-		return f"{message['From']}: {message['Subject']}\n{content}"
+		message['content'] = content
+
+		mail.close()
+		mail.logout()
+		return message
 
 
-	def summarizeMailbox(self):
+	def summarize_mailbox(self):
 		return demoString
 
-	def scheduleMeeting(self, request):
+	def schedule_meeting(self, request):
 		try:
 			word_pattern = r'with\s+([\w\s]+?)in|at|for|to'
 			match = re.search(word_pattern, request)
@@ -153,37 +152,6 @@ class Services:
 			text = """Meeting scheduled at 5 pm """			
 
 		return text
-
-
-	def test(self, type="restaurant"):
-		endpoint_url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-		location = '50.1%2C14.4'
-
-		radius = 500
-		opennau = True
-		type ='restaurant'
-
-		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.APIkey}"
-		print(request_url)
-		params={
-			'keyword':'restaurants',
-			'type':'restaurant',
-			'location':location, 
-			'radius':radius,
-			'key':self.APIkey}
-		print(params)
-		#response = requests.get(request_url)
-		response = requests.get(endpoint_url, params=params)
-		print(response.status_code)
-		print(response)
-
-
-		results = response.json()["results"]
-		print(results)
-		for result in results:
-			name = result["name"]
-			location = result["geometry"]["location"]
-			print(f"{name}: ({location['lat']}, {location['lng']})")
 
 	def restaurants(self, type="restaurant"):
 		endpoint_url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
@@ -308,6 +276,8 @@ class Convertor:
 
 	# convert a GPT output that is supposed to be YAML into a JSON while being tolerant to invalid lines and multilines
 	def yaml2json(self, text, defaultTag=None): 
+		if text == None: 
+			return None
 		json = {}
 		lastTag = defaultTag	# used when first lines are without any tag
 		listKey = self.listKey
@@ -326,16 +296,16 @@ class Convertor:
 				# identifier
 				if re.match(compound_words_n_quotes, line):
 					yam = line.split(":", 1)
-					ident = self.stripQuotes(yam[0]).lower()
+					ident = self.strip_quotes(yam[0]).lower()
 					ident = blanks_n_quotes.sub('', ident)
-					json[ident] = self.stripQuotes(yam[1])
+					json[ident] = self.strip_quotes(yam[1])
 					lastTag = ident
 
 				# list
 				elif re.match(list_item, line):
 					if listKey not in json:
 						json[listKey] = []
-					json[listKey].append(self.stripQuotes(re.split(list_item, line, 1)[2]))
+					json[listKey].append(self.strip_quotes(re.split(list_item, line, 1)[2]))
 					lastTag = listKey
 
 				# multilines to be passed to preivous ident
@@ -351,15 +321,19 @@ class Convertor:
 				print("Error" + e)
 		return json if json else None
 
-	def stripQuotes(self, text):
+	def strip_quotes(self, text):
 		text = text.strip()
 		if text.startswith(("'", '"')) and text[0] == text[-1]:
 			text = text[1:-1]
 		return text
 
-	def saveAsCases(self, cases, expectedValue, model):
-		ok = "\n-   ok: "
-		q = "\n    q: |\n        "
+	def links_to_preview(self, text):
+		link = r"(https?://)?([a-z0-9-]+\.)+([a-z]{2,})(/[^\s]*)?"
+		return re.sub(link, r"\2\3…", text)
+
+	def save_cases(self, cases, model, expectedValue):
+		ok = "\n- Equals: "
+		q = "\n  q: |\n    "
 
 		try: 
 			if self.listKey in cases:
@@ -367,25 +341,25 @@ class Convertor:
 		except:
 			print("Error: That's not a list!")
 
-		filename = f"testdata/{model}.yaml"
+		filename = f"testdata/{model.strip()}.yaml"
 		try:
 			with open(filename, 'a+') as file:
 				for case in cases:
-					file.write(ok + expectedValue)
+					file.write(ok + expectedValue.strip())
 					file.write(q + case)
 			print(f"{len(cases)} saved to {filename}")
 
 		except Exception as e:
 			print(e)
 
-	def firstSentences(self, text):
+	def first_sentences(self, text):
 		firstSentences = re.split(r'(?<=\w[.?^!]) +(?=\w)', text)
 		firstSentences = ".".join(firstSentences[:2])
 		if len(firstSentences)<200:
 			firstSentences = text[:200]
 		return firstSentences
 
-	def MD2Blocks(_, text):
+	def split_to_MD_blocks(_, text):
 		objectTypes = {
 			'code': r'(?m)^\s*```(\w*)([\s\S]*?)```\s*$', 
 			'list': r"^(?: *[\*\-+]|\d+\.)[^\n]*$", 

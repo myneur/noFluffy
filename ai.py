@@ -29,13 +29,13 @@ class AI:
 		self.ensureAPIConnection()
 
 		if not AI.conf:
-			self.loadConfig()
+			self.load_config()
 
 		self.mode = mode if mode else list(AI.modes.keys())[0]
 
 		self.memory = integrations.Memory()
 
-		self.clearMessages()
+		self.clear_messages()
 		
 	def ensureAPIConnection(self):
 		""" It does not work the first time after hours of inactivity: trying to debug how to make it robust: """
@@ -44,16 +44,16 @@ class AI:
 			openai.api_key = AI.key
 		self.lastUsedTime = t
 
-	def loadConfig(self):
-		with open('config.yaml', 'r') as file:
+	def load_config(self):
+		with open('data/config.yaml', 'r') as file:
 			AI.conf = yaml.safe_load(file)
 		AI.modes = AI.conf['modes']
 
-	def switchModel(self):
+	def switch_model(self):
 		self.model = (self.model+1)%len(self.models)
 		return AI.models[self.model]
 
-	def voice2text(self, filename):
+	def voice_to_text(self, filename):
 		audio_file= open(filename, "rb")
 		self.ensureAPIConnection()
 		try:
@@ -62,7 +62,11 @@ class AI:
 			t = time.time()-t
 
 			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
-		except (openai.error.InvalidRequestError, openai.error.APIConnectionError, openai.error.APIError) as e:
+		except openai.error.APIConnectionError:
+			print("The AI is tired. Trying again.")
+			time.sleep(10)
+			return voice_to_text(filename)
+		except (openai.error.InvalidRequestError, openai.error.APIError) as e:
 			self.stats.add({'errors': 1}, 'whisper-1')
 			print(f"Error: {type(e).__name__}: {e}")
 			return False
@@ -75,11 +79,11 @@ class AI:
 		return transcript
 
 	def chat(self, question): 
-		self.keepLastMessages()
+		self.keep_last_messages()
 
 		messages = self.messages
 		if(question):
-			messages.append(self.messageFromTemplate('user', question))
+			messages.append(self.message_from_template('user', question))
 		
 		if 'model_params' in AI.modes[self.mode]:
 			params = AI.modes[self.mode]['model_params'].copy()
@@ -108,32 +112,35 @@ class AI:
 			usage['items'] = len(response['choices'])
 			self.stats.add(usage, self.mode)
 		
-		except openai.error.RateLimitError:
-			print("Error: ", "You are too fast for the OpenAI Service. Waiting 10 seconds…")
+		except (openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
+			print("Error: ", f"The AI is tired. Waiting 10 seconds… ({type(e).__name__})")
 			time.sleep(10)
 			return self.chat(question)
 
-		except (openai.error.InvalidRequestError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
+		except openai.error.InvalidRequestError as e:
+			if str(e).startswith("This model's maximum context length is"): 
+				pass
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
+			return {'error': "Max length exceeded. TOODO: handle it.", 'time':t}
 
 		except Exception as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
 			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
 
-		
-		messages.append(self.messageFromTemplate('assistant', response['choices'][0]['message']['content']))
+		self.tokensUsed = response['usage']['total_tokens']
+		messages.append(self.message_from_template('assistant', response['choices'][0]['message']['content']))
 		
 		self.messages = messages
-		self.tokensUsed = response['usage']['total_tokens']
-
 		return response
 
-	def messageFromTemplate(self, role, content): # TODO yet to be finished by refactoring loadConf
+	def message_from_template(self, role, content): 
 		templates = AI.modes[self.mode]['messages']
 		
+		# mem = self.memory.data
+		# TODO eval(f"f'''{template}'''")
+
 		if role in templates:
 			if content:
 				if isinstance(content, list):
@@ -145,19 +152,26 @@ class AI:
 		else:
 			message = content
 		
-		return {'role': role, 'content': message };
+		return {'role': role, 'content': message};
 
-	def keepLastMessages(self, keep=None):
+	def keep_last_messages(self, keep=None):
 		try:
 			if not keep:
 				keep = AI.modes[self.mode]['messages']['remember']
 
-			self.clearMessages(keep)
+			self.clear_messages(keep)
 		except:
 			pass
 		# self.messages = messages
 
-	def clearMessages(self, keep=0):
+	def add_message(self, text, role='assistant'):
+		try:
+			self.tokensUsed += count_tokens(text)
+			self.messages.append(self.messageFromTemplate(role, text))
+		except:
+			pass
+
+	def clear_messages(self, keep=0):
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
 		if keep <= len(self.messages):
 			try:
@@ -167,7 +181,7 @@ class AI:
 				# remove last message 
 				elif keep < 0:
 					if len(self.messages) > 1:
-						self.messages.pop() # TODO allow more messages and self.countTokens(last message)
+						self.messages.pop() # TODO allow more messages and self.count_tokens(last message)
 				#erase all
 				else:
 					self.tokensUsed = 0
@@ -178,12 +192,12 @@ class AI:
 				pass
 		try:
 			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
-				self.messages = [self.messageFromTemplate('system', [", ".join(self.memory.data['languages'])])] + self.messages;
+				self.messages = [self.message_from_template('system', [", ".join(self.memory.data['languages'])])] + self.messages;
 		except Exception as e:
 			print(f"Error: {type(e).__name__}: {e}")
 
-	def chatStream(self, question): # streaming returns by increments instead of the whole text at once
-		self.messages.append(self.messageFromTemplate('user', question))
+	def stream_chat(self, question): # streaming returns by increments instead of the whole text at once
+		self.messages.append(self.message_from_template('user', question))
 		response = openai.ChatCompletion.create(
 			model = AI.models[self.model],
 			messages = self.messages,
@@ -215,14 +229,17 @@ class AI:
 		reply = response['choices'][0]["text"]
 		return reply
 
-	def countTokens(self, text):
+	def count_tokens(self, text):
 		# experimentally getting ~0.7-0.75 words/tokens
-		return len(re.sub(r'\s+', ' ', text).split(" "))
+		return 1.4 * len(re.sub(r'\s+', ' ', text).split(" "))
 
-	def getPrice(self, text):
+	def cut_to_tokens(self, text, limit):
+		return ''.join(re.findall(r'\S+\s*', text)[:int(limit*.75)])
+
+	def get_price(self, text):
 		return words*tokenPrice(text)
 
-	def getLastReply(self, back=0):
+	def get_last_reply(self, back=0):
 		i = len(self.messages)-1
 		while i>=0 and back>=0:
 			if self.messages[i]['role'] == 'assistant':

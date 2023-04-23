@@ -209,7 +209,7 @@ modes: # default is 1st, underscored are hidden used by system
 
                 REQUEST:
                 {}
-    summarize:
+    summarize_to_subject:
         goal: I create brief summaries
         version: 0.1
         messages:
@@ -221,6 +221,15 @@ modes: # default is 1st, underscored are hidden used by system
 
                 Summarize the messsage content into a breif subject.
             remember: 1
+        model_params:
+            temperature: 0
+    summarize_message:
+        goal: I summarize long mails
+        version: 0.1
+        messages:
+            system: Summarize the message content into 10 paragraphs if it is longer. Keep the language and meaning unchanged.
+            user: "{}"
+            remember: 0
         model_params:
             temperature: 0
     creative:
@@ -289,6 +298,7 @@ modes: # default is 1st, underscored are hidden used by system
                 GUIDANCE:
                 Always reply just with 1 word or compound word if user asked to perform any of the ACTIONS  . 
                 When the INPUT TEXT does not match any of the ACTIONS, reply: none.
+                INPUT TEXT can be in any language.
 
                 ---
 

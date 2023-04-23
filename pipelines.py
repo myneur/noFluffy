@@ -43,7 +43,7 @@ class Pipelines:
 		print("…classifying ")
 		if not self.classifier:
 			self.classifier = AI('_classifier')
-		action = self.chat.ask(self.convert.firstSentences(question), self.classifier)  # TODO do it singleton 
+		action = self.chat.ask(self.convert.first_sentences(question), self.classifier)  # TODO do it singleton 
 		
 		# TODO do it through YAML
 		if action:
@@ -71,7 +71,7 @@ class Pipelines:
 		output = json['translation']+"\n"
 		try:
 			output += f">>> from: {json['from']}, to: {json['to']} <<<"
-			self.chat.ai.languages  = [json['from'], json['to']]
+			self.chat.ai.memory.data['languages']  = [json['from'], json['to']]
 		except: 
 			print("Error: did not classify the languages.")
 		return output
@@ -86,13 +86,32 @@ class Pipelines:
 			filters.pop('filters') # TODO needs more handling to be done
 		except:
 			pass
-		return self.services.read_mail(filters)
+
+		message = self.services.read_mail(filters)
+		body = message['content']
+
+		if len(body)> 5000:
+			print("…summarizing long mail")
+			limit = 3000
+			if self.chat.ai.count_tokens(body) > limit: # TODO move to AI
+				body = self.chat.ai.cut_to_tokens(body, limit)
+
+			reply = self.chat.ask(body, AI('summarize_message'))
+			if reply:
+				body = "Summarization of mail:\n"+reply
+
+		body = self.convert.links_to_preview(body)
+
+		self.chat.ai.add_message(text)
+		text = f"{message['From']}: {message['Subject']}\n{body}"
+
+		return text
 
 
 	def send_recent(self, question): 
 		print('…preparing message')
 		chat = self.chat
-		response = chat.ask(question, AI('send_recent'))
+		response = chat.ask(question, AI('send_message'))
 		if response:
 			try:
 				data = self.convert.yaml2json(response)
@@ -104,18 +123,21 @@ class Pipelines:
 				data = {'message':response, 'subject': 'note to myself'}
 
 			try:
-				data['recipients'] = chat.ai.me['mail']
-
-
 				if data['message'] in ('this-conversation', 'last-message'):
-					data['message'] = chat.ai.getLastReply()['message']
+					data['message'] = chat.ai.get_last_reply()['message']
 
 				try:
-					summary = chat.ask(data['message'], AI('summarize'))
+					summary = chat.ask(data['message'], AI('summarize_to_subject'))
 					data['summary'] = summary if summary else "Our last conversation"
 					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['recipients'], data['service'], data['summary'])
 
-					self.services.mailLast({'message': data['message'], 'mail': data['recipients'], 'subject': data['summary']})
+					#self.services.mailLast({'message': data['message'], 'mail': data['recipients'], 'subject': data['summary']})
+					sender = self.chat.ai.memory.data['assistant']['mail']
+
+					to = self.chat.ai.memory.data['me']['mail']
+					# TODO DEMO ! sending only to myself so far!
+
+					self.services.send_mail(sender, to, data['summary'], data['message'])
 				except Exception as e:
 					print(f"Error: {type(e).__name__}: {e}, {e.args} ")
 					traceback.print_exc()
@@ -123,6 +145,7 @@ class Pipelines:
 
 			except Exception as e:
 				print("Error in creating the message. Needs review:(")
+				print(f"Error: {type(e).__name__}: {e}")
 			return response
 
 	def improve_prompt(self, question=""):
@@ -146,11 +169,11 @@ class Pipelines:
 	def inbox(self, question):
 		print('…summarizing inbox')
 		time.sleep(3)
-		return self.services.summarizeMailbox()
+		return self.services.summarize_mailbox()
 
 	def calendar(self, question):
 		print('…summarizing inbox')
-		return self.services.scheduleMeeting(question)
+		return self.services.schedule_meeting(question)
 
 
 	def write(self, question):

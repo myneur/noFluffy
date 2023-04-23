@@ -1,0 +1,10 @@
+languages:
+    - Czech
+    - English
+me:
+    mail: "myneur@gmail.com"
+    name: Petr
+
+assistant:
+    mail: "myneur@gmail.com"
+    name: Voicelet
