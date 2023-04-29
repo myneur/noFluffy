@@ -1,4 +1,6 @@
 import openai
+from openai.embeddings_utils import get_embedding, cosine_similarity
+#from openai.embeddings_utils import cosine_similarity
 import tiktoken
 
 import integrations
@@ -231,21 +233,33 @@ class AI:
 		return reply
 
 	def embeddings(self, text, model='text-embedding-ada-002'):
-		text = text.replace("\n", " ")
-		return openai.Embedding.create(input = [text], model=model)['data'][0]['embedding']
+		#text = text.replace("\n", " ")
+		if type(text) is not list:
+			text = re.findall(r'\b\w+\b', text)
+		#return get_embedding(text, engine=model)
+		return openai.Embedding.create(input = text, model=model)['data'][0]['embedding']
 
+	def find_similar(self, items, filters, threshold=87):
+		filters = {key: self.embeddings(value) for key, value in filters.items()}
+		match = None
+		for i, it in enumerate(items):
+			for k in filters.keys():
+				embs = self.embeddings(it[k])
+				similar = cosine_similarity(embs, filters[k])
+				print(similar, it['name'])
+				items[i]['similarity'] = similar
+				if match == None or similar > match['similarity']:
+					match = it
+		return match #if match and match['similarity'] < threshold else None
+				
 	def count_tokens(self, text, encoding_name='cl100k_base'):
 		encoding = tiktoken.get_encoding(encoding_name)
 		num_tokens = len(encoding.encode(text))
 		#num_tokens = (int(1.4 * len(re.sub(r'\s+', ' ', text).split(" "))))
 		return num_tokens
 
-
 	def cut_to_tokens(self, text, limit):
 		return ''.join(re.findall(r'\S+\s*', text)[:int(limit*.75)])
-
-	def get_price(self, text):
-		return words*tokenPrice(text)
 
 	def get_last_reply(self, back=0):
 		i = len(self.messages)-1
