@@ -1,190 +1,100 @@
-- Equals:
+- from: Sarah
+  text: meeting
   q: |
     Hey, can you dig up that email from Sarah about next week's meeting?
-- Equals:
-  q: |
-    Is there any way you can find that email thread from John you showed me yesterday?
-- Equals:
+- subject: Important Announcement
   q: |
     Can you search for the email with the subject line "Important Announcement"?
-- Equals:
+- from: Sam
+  Contains: attachments
   q: |
     Hey, can you find the email from Sam with the file attachment?
-- Equals:
+- from: Mom
+  text: flight details
   q: |
     Can you look for the email from Mom with her flight details?
-- Equals:
+- from: James
+  Contains: attachments
   q: |
     Is there an email from James with the proposal attached? 
-- Equals:
-  q: |
-    Hey, can you find the email from the HR department about the new benefits package?
-- Equals:
+- subject: Project Status
+  date: last week
   q: |
     Can you search for the email thread with the subject "Project Status" from last week?
-- Equals:
+- from: my boss
+  text: deadline
   q: |
     Hey, can you find the email from my boss about the upcoming deadline?
-- Equals:
-  q: |
-    Can you look for the email from Jane about the Friday team event?
-- Equals:
-  q: |
-    Is there an email from the customer regarding the product inquiry?
-- Equals:
-  q: |
-    Hey, can you find the email from the support team about the service issue?
-- Equals:
+- to: me
+  date: yesterday
+  Contains: attachments
   q: |
     Can you search for the email with the attachment that I received yesterday?
-- Equals:
-  q: |
-    Hey, can you find the email from last month with the discount offer?
-- Equals:
-  q: |
-    Can you look for the email from the marketing team about the new campaign ideas?
-- Equals:
-  q: |
-    Is there an email from the vendor regarding the payment status?
-- Equals:
-  q: |
-    Hey, can you find the email from my friend with the party details?
-- Equals:
+- text: meeting minutes
+  date: last week
   q: |
     Can you search for the email with the meeting minutes from the last week's meeting?
-- Equals:
-  q: |
-    Hey, can you find the email from the recruitment team about the job interview schedule? 
-- Equals:
-  q: |
-    Can you look for the email from the travel agency about the flight booking confirmation?
-- Equals:
-  q: |
-    "Did I receive an email from HR last week?"
-- Equals:
-  q: |
-    "Find the attachment that was sent yesterday."
-- Equals:
+- text: invoice
+  Contains: attachments
   q: |
     "Looking for an email with the invoice attached."
-- Equals:
-  q: |
-    "Show me all emails that contain the word 'urgent'."
-- Equals:
-  q: |
-    "Find emails sent from my boss in the last month."
-- Equals:
-  q: |
-    "Search for emails with the subject line 'Meeting Agenda'."
-- Equals:
-  q: |
-    "Did I receive an email from the marketing team last week?"
-- Equals:
+- to: Mary
+  what: list
   q: |
     "Show me all the emails I sent to Mary."
-- Equals:
-  q: |
-    "Find the email with the contract attached."
-- Equals:
-  q: |
-    "Look for an email with the word 'refund' in it."
-- Equals:
-  q: |
-    "Find emails with the attachment name 'Proposal'."
-- Equals:
+- from: customer service team
+  what: list
   q: |
     "What emails did I receive from the customer service team?"
-- Equals:
+- label: Important
+  what: list
   q: |
     "Show me all emails with the label 'Important'."
-- Equals: 
-  q: |
-    Can you show me emails from John?
-- Equals: 
-  q: |
-    Find me emails with attachments about the project proposal.
-- Equals: 
-  q: |
-    Could you show me my unread emails related to the team meeting?
-- Equals: 
-  q: |
-    Please show me emails with the important tag from the CEO.
-- Equals: 
+- label: Starred
+  text: product launch
   q: |
     Can you display my starred emails about the new product launch?
-- Equals: 
-  q: |
-    Could you show me emails with the label "Urgent"?
-- Equals: 
-  q: |
-    Find me emails with the subject "Invoice Payment".
-- Equals: 
+- date: last week
+  what: list
   q: |
     Show me emails from last week.
-- Equals: 
-  q: |
-    Can you display emails from "@example.com" domain?
-- Equals: 
-  q: |
-    Could you show me emails with VIP sender from the sales department?
-- Equals: 
+- object: list
+  kind: reply
+  subject: job application
   q: |
     Show me emails with replies to the job application.
-- Equals: 
-  q: |
-    Can you display emails with the label "Marketing"?
-- Equals: 
-  q: |
-    Find me emails flagged by me about the upcoming event.
-- Equals: 
-  q: |
-    Could you show me emails sent to Sarah?
-- Equals: 
-  q: |
-    Can you display emails from John Smith?
-- Equals: 
+- Contains: attachments
+  AttachmentKind: PDF
+  what: list
   q: |
     Please show me emails with "PDF" attachment.
-- Equals: 
-  q: |
-    Can you find emails related to the "New York" project?
-- Equals: 
-  q: |
-    Could you show me emails with "Vacation Request" subject AND "HR" tag?
-- Equals: 
-  q: |
-    Show me emails with "contract" keyword.
-- Equals: 
-  q: |
-    Can you display emails received during the past three months?
-# Questioning mail
-- Equals: 
+# Semantic searches
+- text: flight ticket
   q: |
     Hvor er billetten min til flyet mitt?
-- Equals: 
+- text: flight ticket
   q: |
     Where is my ticket for my flight?
-- Equals: 
+- text: reservation confirmation
   q: |
     ¿Dónde está el correo electrónico de confirmación de mi reserva?
-- Equals: 
-  q: |
-    Where is the confirmation email for my reservation?
-- Equals: 
-  q: |
-    Où est le mail de confirmation pour le concert?
-- Equals: 
-  q: |
-    Where is the confirmation email for the concert?
-- Equals: 
+- text: reservation confirmation
   q: |
     Gdzie jest potwierdzenie rezerwacji?
-- Equals: 
+- text: reservation confirmation
   q: |
-    Where is the confirmation of my reservation?
-- Equals: 
+    Where is the confirmation email for my reservation?
+- text: concert confirmation
+  q: |
+    Où est le mail de confirmation pour le concert?
+- text: concert confirmation
+  q: |
+    Where is the confirmation email for the concert?
+- what: date
+  from: health insurance
   q: |
     Wann habe ich zuletzt eine E-Mail von meiner Krankenkasse erhalten?
-- Equals: 
+- what: date
+  from: health insurance
   q: |
     When was the last time I received an email from my health insurance?

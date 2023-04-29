@@ -91,9 +91,9 @@ class Pipelines:
 		message = self.services.read_mail(filters)
 		body = message['content']
 
-		if len(body)> 5000:
+		if len(body)> 4000:
 			print("…summarizing long mail")
-			limit = 3000
+			limit = 2000
 			if self.chat.ai.count_tokens(body) > limit: # TODO move to AI
 				body = self.chat.ai.cut_to_tokens(body, limit)
 
@@ -102,8 +102,10 @@ class Pipelines:
 				body = "Summarization of mail:\n"+reply
 
 		body = self.convert.links_to_preview(body)
-
-		self.chat.ai.add_message(text)
+		body = self.convert.remove_long_literals(body)
+		
+		self.chat.ai.add_message(text, 'user')
+		self.chat.ai.add_message(body)
 
 		try:
 			text = f"{message['From']}: {message['Subject']}\n{body}"

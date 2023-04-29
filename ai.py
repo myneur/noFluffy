@@ -1,4 +1,5 @@
 import openai
+import tiktoken
 
 import integrations
 
@@ -166,10 +167,10 @@ class AI:
 
 	def add_message(self, text, role='assistant'):
 		try:
-			self.tokensUsed += count_tokens(text)
-			self.messages.append(self.messageFromTemplate(role, text))
-		except:
-			pass
+			self.tokensUsed += self.count_tokens(text)
+			self.messages.append(self.message_from_template(role, text))
+		except Exception as e:
+			print(f"Failed adding message to memory: {type(e).__name__}: {e}")
 
 	def clear_messages(self, keep=0):
 		# TODO: check for system messages and consider keeping start of the conversation after as an anchor
@@ -229,9 +230,16 @@ class AI:
 		reply = response['choices'][0]["text"]
 		return reply
 
-	def count_tokens(self, text):
-		# experimentally getting ~0.7-0.75 words/tokens
-		return 1.4 * len(re.sub(r'\s+', ' ', text).split(" "))
+	def embeddings(self, text, model='text-embedding-ada-002'):
+		text = text.replace("\n", " ")
+		return openai.Embedding.create(input = [text], model=model)['data'][0]['embedding']
+
+	def count_tokens(self, text, encoding_name='cl100k_base'):
+		encoding = tiktoken.get_encoding(encoding_name)
+		num_tokens = len(encoding.encode(text))
+		#num_tokens = (int(1.4 * len(re.sub(r'\s+', ' ', text).split(" "))))
+		return num_tokens
+
 
 	def cut_to_tokens(self, text, limit):
 		return ''.join(re.findall(r'\S+\s*', text)[:int(limit*.75)])

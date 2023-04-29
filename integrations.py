@@ -68,6 +68,7 @@ class Services:
 
 	def read_mail(self, filters=None):
 		""" gets the last mail according to either IMAP criteria strong or dictionary """
+
 		mail = imaplib.IMAP4_SSL('imap.gmail.com')
 		mail.login(self.loginMail, self.gmailKey)
 		mail.select("INBOX")
@@ -85,11 +86,7 @@ class Services:
 							break
 
 						keyword = unidecode(keyword)
-						#keyword = imaplib.IMAP4.literal(keyword).decode('utf-8')
 						#keyword = keyword.encode('utf-8')
-
-						#f'(OR FROM "*{keyword}*" header FROM *{keyword}*)'
-							
 						if field == 'SUBJECT': 
 							field = f'(OR (SUBJECT "{keyword}") (BODY "{keyword}"))'
 						else:
@@ -102,26 +99,24 @@ class Services:
 		try:
 
 			#search_query = f'X-GM-RAW "from:*{keyword}* to:*{keyword}* subject:*{keyword}*"'
-			#search_query = f'X-GM-RAW "subject:*Krkonosich*"'
+			
 			#mail.literal = filters['subject'].encode('UTF-8')
-			#status, messages = mail.uid('search', None, 'CHARSET UTF-8 SUBJECT')
-			#status, messages = mail.search(None, search_query)
-
-			status, messages = mail.search('utf-8', *query)
+			#mail.literal =  "Krkonoše".encode('UTF-8')	
+			#status, messages = mail.uid('search', None, 'CHARSET UTF-8 SUBJECT') # this bastard allow only one literal to pass
+			status, messages = mail.uid('search', None, 'CHARSET UTF-8', *query) # this bastard allow only one literal to pass
+			#status, messages = mail.search('utf-8', *query)
 			#status, messages = mail.search(None, 'X-GM-RAW', *query)
 
 		except Exception as e:
 			return {'content': f"{type(e).__name__}: {e} \n {str(query)}"}
 
 		#filters.encode('utf-8')
-		#unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
 
 		try:
 			last_message = messages[0].split()[-1]
 
 			status, data = mail.fetch(last_message, '(RFC822)')
-			#status, data = mail.uid("fetch", last_message, "(RFC822)")
-
+			status, data = mail.uid("fetch", last_message, "(RFC822)")
 
 			message = email.message_from_bytes(data[0][1])
 		except:
@@ -365,6 +360,14 @@ class Convertor:
 	def links_to_preview(self, text):
 		link = r"(https?://)?([a-z0-9-]+\.)+([a-z]{2,})(/[^\s]*)?"
 		return re.sub(link, r"\2\3…", text)
+
+	def remove_long_literals(self, text):
+		longish_literal = r"\b\S{26,}\b"
+		return re.sub(longish_literal, lambda match: match.group()[:10]+"…", text)
+
+	def remove_gibberish(self, text):
+		gibberish = r'(\S*[=?]+\S*){26,}'
+		return re.sub(gibberish, "", text)
 
 	def save_cases(self, cases, model, expectedValue):
 		ok = "\n- Equals: "
