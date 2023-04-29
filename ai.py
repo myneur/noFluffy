@@ -22,10 +22,12 @@ class AI:
 		self.lastUsedTime = 0
 		self.refreshAfter = 60*60
 
+		self.set_limit()
+
 		self.stats = integrations.Stats()
 		
-		# alternatively openai.api_key = os.environ.get('OPENAI_KEY')
 		if not AI.key:
+			# AI.key = os.environ.get('OPENAI_KEY')
 			with open('../private.key', 'r') as key:	# TODO read just once
 				AI.key = key.read().strip()
 		
@@ -39,12 +41,22 @@ class AI:
 		self.memory = integrations.Memory()
 
 		self.clear_messages()
+
+	def set_limit(self, limit=None):
+		if limit:
+			self.limit = limit
+			return 
+		try:
+			self.limit = self.conf['model']['chat'][self.model]['limit']
+		except:
+			self.limit = 2000
+			return
 		
 	def ensureAPIConnection(self):
-		""" It does not work the first time after hours of inactivity: trying to debug how to make it robust: """
+		""" After hours of inactivity it typically fails: trying to debug how to make it robust: """
 		t = time.time()
 		if self.refreshAfter < t - self.lastUsedTime:
-			openai.api_key = AI.key
+			openai.api_key = AI.key # TODO will it really work?
 		self.lastUsedTime = t
 
 	def load_config(self):
@@ -54,6 +66,7 @@ class AI:
 
 	def switch_model(self):
 		self.model = (self.model+1)%len(self.models)
+		self.set_limit()
 		return AI.models[self.model]
 
 	def voice_to_text(self, filename):
@@ -83,6 +96,7 @@ class AI:
 
 	def chat(self, question): 
 		self.keep_last_messages()
+		self.ensure_limits(question)
 
 		messages = self.messages
 		if(question):
@@ -122,10 +136,11 @@ class AI:
 
 		except openai.error.InvalidRequestError as e:
 			if str(e).startswith("This model's maximum context length is"): 
-				pass
+				self.ensure_limits(question, int(self.limit/2))
+				self.chat(question)
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': "Max length exceeded. TOODO: handle it.", 'time':t}
+			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
 
 		except Exception as e:
 			t = time.time()-t
@@ -166,6 +181,7 @@ class AI:
 		except:
 			pass
 		# self.messages = messages
+		return len(self.messages)
 
 	def add_message(self, text, role='assistant'):
 		try:
@@ -195,9 +211,27 @@ class AI:
 				pass
 		try:
 			if len(self.messages)==0 or self.messages[0]['role'] != 'system':
+				if len(self.messages)>0:
+					self.messages = self.messages[1:]
 				self.messages = [self.message_from_template('system', [", ".join(self.memory.data['languages'])])] + self.messages;
 		except Exception as e:
 			print(f"Error: {type(e).__name__}: {e}")
+		return len(self.messages)
+
+	def ensure_limits(self, text="", limit=None, expected_reply=300):
+		if limit == None: 
+			limit = self.limit
+
+		expected_addition = expected_reply + self.count_tokens(text)
+		expected = self.tokensUsed + expected_addition
+		mess_len = 0
+		while limit < expected and mess_len != len(self.messages):
+			mess_len = len(self.messages)
+			self.clear_messages(mess_len-1)
+			self.tokensUsed = self.count_tokens()
+			expected = self.tokensUsed + expected_addition
+		return self.tokensUsed
+
 
 	def stream_chat(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append(self.message_from_template('user', question))
@@ -252,9 +286,12 @@ class AI:
 					match = it
 		return match #if match and match['similarity'] < threshold else None
 				
-	def count_tokens(self, text, encoding_name='cl100k_base'):
+	def count_tokens(self, text=None, encoding_name='cl100k_base'):
 		encoding = tiktoken.get_encoding(encoding_name)
-		num_tokens = len(encoding.encode(text))
+		if text:
+			num_tokens = len(encoding.encode(text))
+		else:
+			num_tokens = sum(self.count_tokens(m['content']) for m in self.messages)
 		#num_tokens = (int(1.4 * len(re.sub(r'\s+', ' ', text).split(" "))))
 		return num_tokens
 
