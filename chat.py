@@ -334,6 +334,7 @@ class Synthesizer:
 			voice = self.voices[lang]
 
 		text = self.escape4shell(self.simply2read(text))
+		self.stop()
 		self.process = subprocess.Popen(["say", "-v", voice['name'], text, "-r", str(voice['speed'])])
 		#os.system(f'say -v "{text_voice}"  "{text}"')
 

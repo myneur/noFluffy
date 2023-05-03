@@ -20,6 +20,8 @@ import email
 import chardet
 from unidecode import unidecode
 
+from geopy.distance import geodesic as distance
+
 from pytube import YouTube
 
 demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
@@ -30,13 +32,27 @@ demoString = """- You have a reply from Mark regarding designs, asking for ideas
 Do you want me to summarize them?
 		"""
 
+def ex(e):
+	return f"{type(e).__name__}: {e}"
+
 class Memory:
-	def __init__(self):
-		self.load()
+	def __init__(self, name='memory'):
+		self.name = name
+		if not hasattr(Memory, name):
+			self.load()
+		self.data = getattr(Memory, name)
 
 	def load(self):
-		with open('data/memory.yaml', 'r') as file:
-			Memory.data = yaml.safe_load(file)
+		try:
+			with open(f'data/{self.name}.yaml', 'r') as file:
+				setattr(Memory, self.name, yaml.safe_load(file))
+		except:
+			setattr(Memory, self.name, {})
+
+	def save(self):
+		with open(f'data/{self.name}.yaml', "w") as file:
+			yaml.dump(getattr(Memory, self.name), file)
+
 
 class Services:
 	def __init__(self):
@@ -66,6 +82,113 @@ class Services:
 
 		return True
 
+	def split_query_literal_filters(self, filters, mail_set='ALL', candidates=('subject', 'text', 'body')):
+		if not filters:
+			return mail_set
+		query = ""
+		fulltext_literal = {}
+		candidates = set(candidates).intersection(set(filters.keys())) if candidates else set(filters.keys())			
+
+		for k in candidates:
+			it = filters[k]
+			if not fulltext_literal and unidecode(it) != it:
+				fulltext_literal = {'key': k, 'value': it}
+				filters.pop(k)
+				candidates.remove(k)
+				break
+			
+		if candidates:
+			if not fulltext_literal:
+				first = list(candidates)[0]
+				fulltext_literal = {'key': first, 'value': filters[first]}
+				filters.pop(first)
+				candidates.remove(first)
+			for k in candidates:
+				query += f'({k.upper()} "{filters[k]}") ' # TODO allow OR as well
+				filters.pop(k)
+
+		return query, fulltext_literal, filters
+
+	def get_mails(self, query=None, literal=None, limit=100, headers=None):
+		mail = imaplib.IMAP4_SSL('imap.gmail.com')
+		mail.login(self.loginMail, self.gmailKey)
+		mail.select("INBOX")
+		if not (query or literal):
+			query = 'ALL'
+		try:
+			if literal:
+				mail.literal = literal['value'].encode('UTF-8')
+				query += " "+literal['key']
+
+			status, messages = mail.uid('search', 'UTF-8', query) # this bastard allow only one literal to pass
+
+		except Exception as e:
+			print(f"Error getting mails: {type(e).__name__}: {e}")
+			print(query, literal, headers)
+			return None
+
+		try:
+			print(len(messages[0].split()), "mails")
+			messages = messages[0].split()
+			if limit:
+				messages = messages[:limit]
+
+			mode = "(BODY.PEEK[HEADER.FIELDS ("+ ' '.join(headers)+")])" if headers else "(RFC822)"
+
+			mails = []
+			for message in messages:
+				status, data = mail.uid("fetch", message, mode)
+				if headers: 
+					fields = data[0][1]
+					encoding = chardet.detect(fields)
+					fields = re.split("[\n\r]+", fields.decode(encoding['encoding']))
+					data = {}
+					for field in fields:
+						f = field.split(':')
+						if len(f)>1:
+							data[f[0].lower()] = f[1]
+				else:
+					message = email.message_from_bytes(data[0][1])
+					parts = message.walk() if message.is_multipart() else [message]
+					for part in parts:
+						if part.get_content_type() in ("text/plain", "text/html"):
+							try:
+								payload = part.get_payload(decode=True)
+								encoding = chardet.detect(payload)
+								data = payload.decode(encoding['encoding'], 'replace')
+							except Exception as e:
+								print(f"Error decoding mail: {type(e).__name__}: {e}")
+							try: 
+								# TODO make it robuts to languages nad different clients: \n<p>On Thu, Apr 13, 2023 at 12:49\u202fPM Petr Meissner aka myneur <a href="...">...</a>\nwrote:</p>\n<blockquote>\n<p>...
+								data = self.remove_re(data)
+							except: 
+								print('no content')
+				if data:
+					mails.append(data)
+		except Exception as e:
+			print(f"{type(e).__name__}: {e} \n {str(query)}")
+		finally:
+			mail.close()
+			mail.logout()
+		
+		return mails
+
+	def read_mail_semantic(self, filters=None, limit=100):
+		query, literal, filters = self.split_query_literal_filters(filters)
+		print(query, literal, filters)
+		candidates = self.get_mails(query, literal, limit=limit, headers=filters.keys())
+
+		if filters:
+			from ai import AI
+			ai = AI()
+			return ai.find_similar(candidates, filters)
+		else:
+			return candidates
+
+
+	def remove_re(self, message):
+		return re.split(r"\w+ \w+, \w+ \d+, \d+ \w+ \d+:\d+", message)[0]
+
 	def read_mail(self, filters=None):
 		""" gets the last mail according to either IMAP criteria strong or dictionary """
 
@@ -86,37 +209,29 @@ class Services:
 							break
 
 						keyword = unidecode(keyword)
-						#keyword = keyword.encode('utf-8')
+
 						if field == 'SUBJECT': 
 							field = f'(OR (SUBJECT "{keyword}") (BODY "{keyword}"))'
 						else:
 							field = f'{field} "{keyword}"'
 
-						#field = field.encode('utf-8')
 						query.append(field)
 			if len(query) == 0:
-				query.append('ALL')
+				query.append('ALL') #('UNSEEN', 'INBOX', 'ALL')
 		try:
-
-			#search_query = f'X-GM-RAW "from:*{keyword}* to:*{keyword}* subject:*{keyword}*"'
-			
 			#mail.literal = filters['subject'].encode('UTF-8')
-			#mail.literal =  "Krkonoše".encode('UTF-8')	
-			#status, messages = mail.uid('search', None, 'CHARSET UTF-8 SUBJECT') # this bastard allow only one literal to pass
 			status, messages = mail.uid('search', None, 'CHARSET UTF-8', *query) # this bastard allow only one literal to pass
-			#status, messages = mail.search('utf-8', *query)
-			#status, messages = mail.search(None, 'X-GM-RAW', *query)
 
 		except Exception as e:
 			return {'content': f"{type(e).__name__}: {e} \n {str(query)}"}
 
-		#filters.encode('utf-8')
-
 		try:
+			print(len(messages[0].split()), "mails")
 			last_message = messages[0].split()[-1]
 
-			status, data = mail.fetch(last_message, '(RFC822)')
+			#status, data = mail.fetch(last_message, '(RFC822)')
 			status, data = mail.uid("fetch", last_message, "(RFC822)")
+			#status, data = mail.uid("fetch", last_message, "(BODY[HEADER.FIELDS (FROM TO SUBJECT)])")
 
 			message = email.message_from_bytes(data[0][1])
 		except:
@@ -129,8 +244,6 @@ class Services:
 			return {'content': "no such mail matches: "+str(query)}
 
 		content = ""
-		
-		#content = message.get_payload()
 
 		parts = message.walk() if message.is_multipart() else [message]
 		for part in parts:
@@ -175,35 +288,37 @@ class Services:
 
 		return text
 
-	def restaurants(self, type="restaurant"):
+	def places(self, location, radius=1500, venueType=None):
 		endpoint_url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-		location = '50.1%2C14.4'
+		locStr = str(location[0])+'%2C'+str(location[1])
 
-		radius = 500
-		opennau = True
-		type ='restaurant'
-
-		request_url = f"{endpoint_url}?location={location}&radius=50000&key={self.APIkey}"
-		print(request_url)
-		params={
-			'keyword':'restaurants',
-			'type':'restaurant',
-			'location':location, 
-			'radius':radius,
-			'key':self.APIkey}
-		print(params)
-		#response = requests.get(request_url)
-		response = requests.get(endpoint_url, params=params)
-		print(response.status_code)
-		print(response)
-
-
+		# TODO opennow, keyword, rankby prominence|distance 
+		
+		request_url = f"{endpoint_url}?location={locStr}&radius={radius}&key={self.APIkey}"
+		if venueType:
+			request_url += '&type='+venueType
+		response = requests.get(request_url)
 		results = response.json()["results"]
-		print(results)
-		for result in results:
-			name = result["name"]
-			location = result["geometry"]["location"]
-			print(f"{name}: ({location['lat']}, {location['lng']})")
+
+		for i, result in enumerate(results):
+			adr = result["vicinity"].split(',')
+			street_index = 1 if adr[0][0].isdigit()else 0
+			address = adr[street_index].strip()
+			if street_index:
+				address += ', ' + adr[0]
+			results[i]['address'] = address
+			
+			if 'rating' not in result:
+				results[i]['rating'] = 0
+			
+			venueLoc = result["geometry"]["location"]
+			results[i]['distance']  = distance((venueLoc['lat'], venueLoc['lng']), location)
+			# ['types'], ['place_id'], ['photos'][0]['photo_reference'], {location['lat']}, {location['lng']}
+
+		sorted_results = sorted((results), key=lambda x: x['rating'], reverse=True)
+
+		for result in sorted_results:
+			print(f"{str(result['rating'])}* {result['name']}: {result['address']} @{result['distance'].km:.1f} km")
 
 
 class Splitter:

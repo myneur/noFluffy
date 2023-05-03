@@ -1,9 +1,10 @@
 import openai
-from openai.embeddings_utils import get_embedding, cosine_similarity
 #from openai.embeddings_utils import cosine_similarity
+from openai.datalib import numpy as np
 import tiktoken
+from unidecode import unidecode
 
-import integrations
+from integrations import Stats, Memory
 
 import time
 import yaml
@@ -24,7 +25,7 @@ class AI:
 
 		self.set_limit()
 
-		self.stats = integrations.Stats()
+		self.stats = Stats()
 		
 		if not AI.key:
 			# AI.key = os.environ.get('OPENAI_KEY')
@@ -38,7 +39,8 @@ class AI:
 
 		self.mode = mode if mode else list(AI.modes.keys())[0]
 
-		self.memory = integrations.Memory()
+		self.memory = Memory() # structured information 
+		self.cache = Memory('cache') # for expensive operations like embeddings
 
 		self.clear_messages()
 
@@ -232,7 +234,6 @@ class AI:
 			expected = self.tokensUsed + expected_addition
 		return self.tokensUsed
 
-
 	def stream_chat(self, question): # streaming returns by increments instead of the whole text at once
 		self.messages.append(self.message_from_template('user', question))
 		response = openai.ChatCompletion.create(
@@ -267,24 +268,41 @@ class AI:
 		return reply
 
 	def embeddings(self, text, model='text-embedding-ada-002'):
-		#text = text.replace("\n", " ")
 		if type(text) is not list:
+			text = text.replace("\n", " ")
 			text = re.findall(r'\b\w+\b', text)
-		#return get_embedding(text, engine=model)
-		return openai.Embedding.create(input = text, model=model)['data'][0]['embedding']
+		if model not in self.cache.data:
+			self.cache.data[model] = {}
+		
+		tuhash = hash(tuple(text))
+		if tuhash in self.cache.data[model]: 
+			embs = self.cache.data[model][tuhash] 
+		else:
+			embs = openai.Embedding.create(input = text, model=model)['data'][0]['embedding']
+			self.cache.data[model][tuhash] = embs
+		return embs
 
-	def find_similar(self, items, filters, threshold=87):
-		filters = {key: self.embeddings(value) for key, value in filters.items()}
-		match = None
+	def find_similar(self, items, filters, threshold=0.88):
+		""" returns the most similar item from the array of dictionaries to the values of the dictionary, e. g. {'name': "Mařena"} """
+
+		preprocess = lambda x: self.embeddings(unidecode(x).lower())
+		filters = {key: preprocess(value) for key, value in filters.items()}
+
+		matches = []
 		for i, it in enumerate(items):
+			#print('.', end='')
+			print('.')
 			for k in filters.keys():
-				embs = self.embeddings(it[k])
-				similar = cosine_similarity(embs, filters[k])
-				print(similar, it['name'])
+				embs = preprocess(it[k])
+				similar = self.similarity(embs, filters[k]) 
 				items[i]['similarity'] = similar
-				if match == None or similar > match['similarity']:
-					match = it
-		return match #if match and match['similarity'] < threshold else None
+				if similar > threshold:
+					matches.append(it)
+		sorted_matches = sorted(matches, key=lambda k: k['similarity'], reverse=True)
+		return sorted_matches
+	
+	def similarity(_, a, b):
+	    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 				
 	def count_tokens(self, text=None, encoding_name='cl100k_base'):
 		encoding = tiktoken.get_encoding(encoding_name)
