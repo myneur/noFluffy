@@ -31,7 +31,7 @@ guide = """– 'Listen': ENTER to start & stop
 – 'Clear' conversation: 0 """
 
 class Chat:
-	def __init__(self):
+	def __init__(self, log=False):
 		self.rec = Recorder()
 		self.say = Synthesizer()
 		self.ai = AI()
@@ -39,7 +39,8 @@ class Chat:
 		self.pipeline = Pipelines(self)
 		self.services = integrations.Services()
 
-		self.logger = integrations.Logger()
+		self.log = log
+		self.logger = integrations.Logger(log)
 		
 		self.execute = self.pipeline.execute
 		self.minChars = 5
@@ -70,7 +71,8 @@ class Chat:
 			# Exit by Escape
 			if prompt == escape:
 				s = self.ai.stats.print()
-				self.logger.log(s)
+				if self.log:
+					self.logger.log(s)
 				break
 
 			if self.rec.recording and len(prompt) == 0:
@@ -191,7 +193,8 @@ class Chat:
 	def ask(self, question, ai=None):
 		if ai == None:
 			ai = self.ai
-			self.logger.log('- |\n  '+question.replace('\n', '\n  '))
+			if self.log:
+				self.logger.log('- |\n  '+question.replace('\n', '\n  '))
 
 		response = ai.chat(question)
 		
@@ -211,7 +214,8 @@ class Chat:
 				if mess:
 					print(mess)
 					self.say.say(mess)
-				self.logger.log('- error: '+mess+ '\n')
+				if self.log:
+					self.logger.log('- error: '+mess+ '\n')
 
 			#if 'traceback' in response:
 			#	print(response['traceback'])

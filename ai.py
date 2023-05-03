@@ -81,8 +81,8 @@ class AI:
 
 			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
 		except openai.error.APIConnectionError:
-			print("The AI is tired. Waiting 10 seconds…")
-			time.sleep(10)
+			print("The AI is tired. Waiting 5 seconds…")
+			time.sleep(5)
 			return self.voice_to_text(filename)
 		except (openai.error.InvalidRequestError, openai.error.APIError) as e:
 			self.stats.add({'errors': 1}, 'whisper-1')
@@ -132,8 +132,8 @@ class AI:
 			self.stats.add(usage, self.mode)
 		
 		except (openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
-			print("Error: ", f"The AI is tired. Waiting 10 seconds… ({type(e).__name__})")
-			time.sleep(10)
+			print("Error: ", f"The AI is tired. Waiting 5 seconds… ({type(e).__name__})")
+			time.sleep(5)
 			return self.chat(question)
 
 		except openai.error.InvalidRequestError as e:

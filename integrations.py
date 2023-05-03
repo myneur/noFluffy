@@ -11,6 +11,9 @@ from bs4 import BeautifulSoup
 #import markdown
 #from rich.markdown import Markdown
 import html2text
+import asyncio
+from pyppeteer import launch
+import pyppeteer_stealth
 
 import smtplib
 from email.mime.text import MIMEText
@@ -371,7 +374,7 @@ class Scraper:
 		audio_stream.download(filename_prefix="audio_")
 		return audio_stream
 
-	def web(self, url, tag="article"):
+	def url(self, url, tag="article"):
 		response = requests.get(url)
 		html_content = response.content
 
@@ -381,6 +384,44 @@ class Scraper:
 
 		article_text = article.get_text()
 		return article_text
+
+
+
+	async def _web(self, url):
+		browser = await launch()
+		page = await browser.newPage()
+		await pyppeteer_stealth.stealth(page)
+		await page.goto(url)
+		content = await page.content()
+		return browser, page, content
+
+	
+		
+		"""soup = BeautifulSoup(content, 'html.parser')
+		h1_tags = soup.find_all('h1')
+		for h1 in h1_tags:
+			print(h1.text)"""
+
+		"""
+		elements = '//article[@data-testid="tweet"]//div[@data-testid="tweet"]//span'
+		await page.waitForXPath(elements, timeout=10000)
+		tweets = await page.xpath(elements)
+
+		for tweet in tweets:
+			text = await page.evaluate('(element) => element.textContent', tweet)
+			print(text)"""
+
+	def web_xpath(self, url, xpath='title'):
+		async def web(url):
+			browser, page, content = await self._web(url)
+
+			elements = await page.xpath(f'//{xpath}')
+			for elm in elements:
+				text = await page.evaluate(f'({xpath}) => {xpath}.textContent', elm)
+				print(text)
+			await browser.close()
+		asyncio.run(web(url))
+	
 
 	"""def articleContent(self, url):
 		article = newspaper.Article(url)
