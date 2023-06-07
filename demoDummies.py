@@ -1,6 +1,6 @@
 def populateTestMailbox(self):
 	#mails = yaml.safe_load(open('logs/in.yaml', 'r'))
-	to = "Petr Meissner <petr@sl8.ch>"
+	to = "Petr Meissner <example@mail.com>"
 	dummyMail = self.data['me']['mail']
 	mails = [{'Contact': "Mark", 'Subject':"Design Approval Request"}]
 	if( input() == 'yes'):

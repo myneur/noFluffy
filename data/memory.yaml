@@ -2,9 +2,9 @@ languages:
     - Czech
     - English
 me:
-    mail: "myneur@gmail.com"
+    mail: "example@mail.com"
     name: Petr
 
 assistant:
-    mail: "myneur@gmail.com"
+    mail: "example@mail.com"
     name: Voicelet
