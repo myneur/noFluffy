@@ -40,7 +40,7 @@ class Chat:
 		self.services = integrations.Services()
 
 		self.log = log
-		self.logger = integrations.Logger(log)
+		self.logger = integrations.Logger()
 		
 		self.execute = self.pipeline.execute
 		self.minChars = 5

@@ -25,7 +25,6 @@ from unidecode import unidecode
 
 from geopy.distance import geodesic as distance
 
-from pytube import YouTube
 
 demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
 - important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
@@ -368,11 +367,38 @@ class Splitter:
 
 class Scraper:
 
-	def youtube(self, url):
-		yt = YouTube(url)
-		audio_stream = yt.streams.filter(only_audio=True).first()
-		audio_stream.download(filename_prefix="audio_")
-		return audio_stream
+	def youtube(self, url, method=0):
+		if method == 0:
+			from pytube import YouTube
+			yt = YouTube(url)
+			audio_stream = yt.streams.filter(only_audio=True).first()
+			audio_stream.download(filename_prefix="audio_")
+			return audio_stream
+		elif method == 1:
+			import youtube_dl
+			options = {
+				'format': 'bestaudio/best',  # Download best available quality
+				'postprocessors': [{
+					'key': 'FFmpegExtractAudio',
+					'preferredcodec': 'mp3',  # Save as mp3 (or 'wav', 'm4a' etc.)
+					'preferredquality': '192',  # 192kbps
+				}],
+				'outtmpl': 'audio.mp3',  # Save the file as 'audio.mp3'
+			}
+			with youtube_dl.YoutubeDL(options) as ydl:
+				return ydl.download([url])
+		else: 
+			import yt_dlp
+			opts = {
+				'format': 'bestaudio/best',
+				'outtmpl': 'audio.%(ext)s',
+				'postprocessors': [{
+					'key': 'FFmpegExtractAudio',
+					'preferredcodec': 'mp3',
+				}],
+			}
+			with yt_dlp.YoutubeDL(opts) as ydl:
+				return ydl.download([url])
 
 	def url(self, url, tag="article"):
 		response = requests.get(url)
@@ -411,16 +437,19 @@ class Scraper:
 			text = await page.evaluate('(element) => element.textContent', tweet)
 			print(text)"""
 
-	def web_xpath(self, url, xpath='title'):
-		async def web(url):
+	def web_xpath(self, url, xpath=None):
+		async def web(url, xpath=None):
 			browser, page, content = await self._web(url)
 
-			elements = await page.xpath(f'//{xpath}')
-			for elm in elements:
-				text = await page.evaluate(f'({xpath}) => {xpath}.textContent', elm)
-				print(text)
+			if xpath:
+				elements = await page.xpath(f'//{xpath}')
+				for elm in elements:
+					text = await page.evaluate(f'(e) => e.textContent', elm)
+					print(text)
+			else:
+				print(content)
 			await browser.close()
-		asyncio.run(web(url))
+		asyncio.run(web(url, xpath)) #f"//{parent_tag}[contains(@class,'{parent_class}')]//*[@id='{element_id}'and contains(@class,'{element_class}')]"
 	
 
 	"""def articleContent(self, url):

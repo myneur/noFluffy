@@ -1,0 +1,17 @@
+openai
+sounddevice
+soundfile
+langdetect
+pyyaml
+rich
+markdown
+html2text
+pandas
+bs4
+chardet
+unidecode
+pytube
+tiktoken
+geopy
+pyppeteer
+pyppeteer_stealth
