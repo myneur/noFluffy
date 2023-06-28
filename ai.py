@@ -1,4 +1,5 @@
 import openai
+import os
 #from openai.embeddings_utils import cosine_similarity
 from openai.datalib import numpy as np
 import tiktoken
@@ -21,16 +22,17 @@ class AI:
 		self.messages = []
 		self.tokensUsed = 0
 		self.lastUsedTime = 0
-		self.refreshAfter = 60*60
+		self.refreshAfter = 5*60
 
 		self.set_limit()
 
 		self.stats = Stats()
 		
 		if not AI.key:
-			# AI.key = os.environ.get('OPENAI_KEY')
-			with open('../private.key', 'r') as key:	# TODO read just once
-				AI.key = key.read().strip()
+			AI.key = os.environ.get('OPENAI_API_KEY')
+			if not AI.key:
+				with open('../private.key', 'r') as key:	# TODO read just once
+					AI.key = key.read().strip()
 		
 		self.ensureAPIConnection()
 
@@ -80,9 +82,16 @@ class AI:
 			t = time.time()-t
 
 			self.stats.add({'items': 1, 'time': t, 'len': len(transcript.text)}, 'whisper-1')
-		except openai.error.APIConnectionError:
-			print("The AI is tired. Waiting 5 seconds…")
+		except openai.error.APIConnectionError as e:
+			print("The AI is tired. Waiting 5 seconds… (APIConnectionError)")
 			time.sleep(5)
+			print(f"Error: {type(e).__name__}: {e}")
+			print(str(e))
+			print(e.args)
+			print(e.__traceback__)
+			print(e.__cause__)
+			print(e.__context__)
+
 			return self.voice_to_text(filename)
 		except (openai.error.InvalidRequestError, openai.error.APIError) as e:
 			self.stats.add({'errors': 1}, 'whisper-1')

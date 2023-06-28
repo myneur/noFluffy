@@ -33,8 +33,8 @@ guide = """– 'Listen': ENTER to start & stop
 class Chat:
 	def __init__(self, log=False):
 		self.rec = Recorder()
-		self.say = Synthesizer()
 		self.ai = AI()
+		self.say = Synthesizer(self.ai.memory.data['voices'])
 		self.convert = integrations.Convertor()
 		self.pipeline = Pipelines(self)
 		self.services = integrations.Services()
@@ -321,11 +321,8 @@ class Recorder:
 			self.audio.append(indata.copy())
 
 class Synthesizer:
-	def __init__(self): 
-		self.voices = {
-			'en': {'name': 'Serena (Premium)', 'lang':'English', 'speed': 190}, #220
-			'cs': {'name': 'Zuzana (Premium)', 'lang':'Czech', 'speed': 200}} #240, magi:190
-
+	def __init__(self, voices): 
+		self.voices = voices
 		self.process = None
 
 	def say(self, text, lang=None):

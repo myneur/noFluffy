@@ -1,10 +1,21 @@
+# Languages are defaults for translate mode not to need to start with what language to translate to
 languages:
     - Czech
     - English
+# Voices are native voice synthesizer names on MacOS to be used. 
+voices: 
+    en: 
+        name: Serena (Premium)
+        lang: English
+        speed: 190
+    cs: 
+        name: Zuzana (Premium)
+        lang: Czech
+        speed: 200
 me:
-    mail: "example@mail.com"
+    mail: "myneur@gmail.com"
     name: Petr
 
 assistant:
-    mail: "example@mail.com"
+    mail: "myneur@gmail.com"
     name: Voicelet
