@@ -33,12 +33,12 @@ This was done before Langchain and OpenAI functions. Langchain is much more powe
 ### Options
 
 Typing a mode name from the options shown in the terminal switches to it
+
 – __0__ clears conversation (to save money or start over)
 – __v__ toggles GPT3/GPT4 (GPT4 is 20xx  more expensive)
 – __p__ to paste from clipboard
 – __f__ Experimental: turns on a classifier (defined as `_classifier` in data/config.yaml) that decides what function to run and then run it. 
     – This solution was chosen before GPT functions were introduced. The GPT functions will perform better, but might be still handy for experimentation reporpused for more general uses when you speak python.
-
 – More keyboard shortcuts are in chat.py main function.
 
 ### Configuration
