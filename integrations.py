@@ -58,8 +58,13 @@ class Memory:
 
 class Services:
 	def __init__(self):
-		self.APIkey = open('../google.key', "r").read()
-		self.gmailKey = open('../gmail.key', "r").read()
+		self.APIkey = os.environ.get('GOOGLE_API_KEY')
+		if not self.APIkey:
+			self.APIkey = open('../google.key', "r").read()
+
+		self.gmailKey = os.environ.get('GMAIL_API_KEY')
+		if not self.gmailKey:
+			self.gmailKey = open('../gmail.key', "r").read()
 
 		self.memory = Memory()
 

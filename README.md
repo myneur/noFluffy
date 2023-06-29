@@ -1,64 +1,75 @@
- # Prototype of voice chat interface that can run computer commands
+
+# Prototype of multi-lingual voice chat interface that can run computer commands
 
 ## Purpose of this prototype
 
-- Test viability of voice controlled interface to lauch any computer service by general language and get response by speech. 
+- Test viability of a voice controlled interface to launch any service on the computer in general language with speech responses. 
 - Discover benefits, efficiency and boundaries of the voice control.
-- Test practicality on the go from mobile phone.
+- Test practicality on the go from a mobile phone.
 - Multi-lingual performance and reliability. 
 - Learn prompt design and prompt strategies. 
 
-## Limits
-
-This was done before Langchain and OpenAI functions. Langchain is much more powerful if you speak python. Despite this was done as experimental, it can be handy for simple prompt design testing simply by editing the configuration instead of coding or to run simple tasks for thosw who can't or don't want to learn the Langchain framework.
-
 ## Installation on Mac
 
-### Install python 3
+### Install in Python 3
 
-- You have the python, right?
-- Install dependencies `pip3 install -r requirements.txt`
-- Set OpenAI API key generated on [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys): `export OPENAI_API_KEY="<paste-your-OpenAI-API-key>"`
-- Change prefered voice names in data/memory.yaml. The voices must be installed in your Mac. 
+- It uses [Python 3](https://www.python.org/) and is not tested with older versions.
+- Install dependencies: `pip3 install -r requirements.txt`
+- Set your [OpenAI API key](https://platform.openai.com/account/api-keys): `export OPENAI_API_KEY="<paste-your-OpenAI-API-key>"` and add this line to `~/.bash_profile`
+- Change prefered voice names in `data/memory.yaml`. The voices can be installed in MacOS Preferences > Accessibility > Spoken language. 
 
 ## How to it use on Mac
 
 ### Basic use
 
-- run `./run.sh` in Mac OS terminal app in the dir you installed it to
+- run `./run.sh` in Mac OS terminal
 - __Enter__ to start and stop listening
-    - It does not expect more than half an hour of listening. 
 - __Esc + Enter__ escapes
+  
+_It does not expect more than half an hour of listening._
 
 ### Options
 
-Typing a mode name from the options shown in the terminal switches to it
-
-– __0__ clears conversation (to save money or start over)
-– __v__ toggles GPT3/GPT4 (GPT4 is 20xx  more expensive)
-– __p__ to paste from clipboard
-– __f__ Experimental: turns on a classifier (defined as `_classifier` in data/config.yaml) that decides what function to run and then run it. 
-    – This solution was chosen before GPT functions were introduced. The GPT functions will perform better, but might be still handy for experimentation reporpused for more general uses when you speak python.
-– More keyboard shortcuts are in chat.py main function.
+- __0__: clears the conversation (to save money or start over)
+- __v__: toggles GPT3/GPT4 (beware GPT4 is 20× more expensive)
+- __p__: to paste from a clipboard
+- __f__: Experimental functions: turns on a classifier (defined as `_classifier` in data/config.yaml) that decides what prompt or function to run first and then run it. 
+    - This solution was chosen before [GPT functions](https://platform.openai.com/docs/guides/gpt/function-calling) were introduced. The GPT functions will perform better, but it might still be handy for further experimentation or repurposing it for more general uses.
+- Typing a mode name from the options shown in the terminal switches to it.
+- More keyboard shortcuts are in chat.py main function.
 
 ### Configuration
 
-New __modes__ can be added to config.yaml in the YAML format under modes node. Both system and user message template text mus be present. 
-{} will be replaced with user input and must be included
-__Languages__ are used as default by a translator mode. They get updated if you ask the translator to translate into a different language in the prompt.
+New __modes__ can be added to `config.yaml`. Both system and user message template text must be included. 
+User input will be used to replace a `{}` placeholder.
+
+__Pipeline__ parameter can optionally contain an array with a sequence of prompt or function names to be executed, chaining the outputs to the inputs.
+
+If you want to code, the pipelines are defined in a Pipeline class in pypelines.py and they can run integrations like mail or web browser from Services class in integrations.py. 
+
+__Languages__ in `memory.yaml` are used as a default in a translator mode so it knows what language to translate to even when not mentioned. 
 Pipeline can optionally contain a sequence of modes or methods in Pipeline class to be run. 
-Simply editing or ading new modes will allow you to test prompts and pipelines.
+Simply editing or adding new modes will allow you to test prompts and pipelines.
 
 ## Usage in mobile phone
 
-The voicelet.html is ready to run in your browser. 
+The voicelet.html is ready to be run in a mobile browser. 
 
 - Deploy voicelet.html on your site
-- Access site on while adding your OpenAI API key as a parameter into the url: ?key=<your-OpenAI API key>
+- Access it while adding your OpenAI API key as a parameter at the end of the url: `?key=<your-OpenAI API key>`
 
-Limitations: on iPhone, the voice recognition is inferior because it must use its native iOS voice recognition because of an OpenAI bug.
+### Limitations:
+On an iPhone, the voice recognition is inferior because it must use its native iOS voice recognition because of an OpenAI bug.
+
+There are no pipelines in the mobile version, only prompts. 
+
+## Limits
+
+This was done before [Langchain](https://python.langchain.com/) and [OpenAI functions](https://platform.openai.com/docs/guides/gpt/function-calling). The Langchain is much more powerful if you speak Python. Despite being experimental, it can be handy for simple prompt design testing simply by editing the configuration instead of coding or to run simple tasks for those who can't or don't want to learn the Langchain framework.
+
+Note that I'm not a programmer and this is just a quick prototype, so the code might not be as beautiful as one might prefer. 
 
 
 ## Testing
 
-To test prompt aggregated performance, a tests.py can be used. 
+To test performance of a chosen prompt update a tests.py prepared to take inputs from a file and prints aggregated results. 
