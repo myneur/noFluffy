@@ -13,9 +13,9 @@ voices:
         lang: Czech
         speed: 200
 me:
-    mail: "myneur@gmail.com"
+    mail: "your-mail@example.com"
     name: Petr
 
 assistant:
-    mail: "myneur@gmail.com"
+    mail: "sender-mail-of-assistant@example.com"
     name: Voicelet

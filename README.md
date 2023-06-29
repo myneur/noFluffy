@@ -11,8 +11,6 @@
 
 ## Installation on Mac
 
-### Install in Python 3
-
 - It uses [Python 3](https://www.python.org/) and is not tested with older versions.
 - Install dependencies: `pip3 install -r requirements.txt`
 - Set your [OpenAI API key](https://platform.openai.com/account/api-keys): `export OPENAI_API_KEY="<paste-your-OpenAI-API-key>"` and add this line to `~/.bash_profile`
@@ -57,6 +55,7 @@ The voicelet.html is ready to be run in a mobile browser.
 
 - Deploy voicelet.html on your site
 - Access it while adding your OpenAI API key as a parameter at the end of the url: `?key=<your-OpenAI API key>`
+- Or you can [try it here](https://www.hoursfrom.world/_functions/voicelet/?key=), if you add your API key at the end of the url. 
 
 ### Limitations:
 On an iPhone, the voice recognition is inferior because it must use its native iOS voice recognition because of an OpenAI bug.
@@ -67,7 +66,7 @@ There are no pipelines in the mobile version, only prompts.
 
 This was done before [Langchain](https://python.langchain.com/) and [OpenAI functions](https://platform.openai.com/docs/guides/gpt/function-calling). The Langchain is much more powerful if you speak Python. Despite being experimental, it can be handy for simple prompt design testing simply by editing the configuration instead of coding or to run simple tasks for those who can't or don't want to learn the Langchain framework.
 
-Note that I'm not a programmer and this is just a quick prototype, so the code might not be as beautiful as one might prefer. 
+Note that this is just a quick and dirty prototype, so the code might not be as beautiful as one might prefer. 
 
 
 ## Testing
