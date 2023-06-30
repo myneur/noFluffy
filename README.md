@@ -1,5 +1,5 @@
 
-# Prototype of multi-lingual voice chat interface that can run computer commands
+# Prototype of multi-lingual voice chat interface to control computer
 
 ## Purpose of this prototype
 
