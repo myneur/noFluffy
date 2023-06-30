@@ -9,6 +9,14 @@
 - Multi-lingual performance and reliability. 
 - Learn prompt design and prompt strategies. 
 
+
+### Demo
+
+
+[![Prototype test](/docs/voicelet.png)](https://www.youtube.com/watch?v=O8nsvHwy5VY)
+
+_Note that one function, the inbox summary is just a dummy response. The point was not to implement all integrations (GPT is great at summarizing so there's not much to test there), but to test how the voice interface feels. All except the summarization is real._
+
 ## Installation on Mac
 
 - It uses [Python 3](https://www.python.org/) and is not tested with older versions.
