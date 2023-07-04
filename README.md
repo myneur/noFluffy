@@ -1,6 +1,8 @@
 
 # Prototype of multi-lingual voice chat interface to control computer
 
+(Publication with insights is in the making.)
+
 ## Purpose of this prototype
 
 - Test viability of a voice controlled interface to launch any service on the computer in general language with speech responses. 
