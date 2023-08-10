@@ -1,7 +1,7 @@
 import openai
 import os
 #from openai.embeddings_utils import cosine_similarity
-from openai.datalib import numpy as np
+#from openai.datalib import numpy as np
 import tiktoken
 from unidecode import unidecode
 

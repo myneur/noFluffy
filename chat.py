@@ -170,8 +170,8 @@ class Chat:
 		return response
 
 	def transcript_recording(self):
-		file = self.rec.stop()
 		print('…recognizing')
+		file = self.rec.stop()
 		transcript = self.ai.voice_to_text(file)
 		if not transcript:
 			if transcript == False:
