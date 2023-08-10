@@ -187,6 +187,21 @@ var _modes = {
 			remember: 0
 		},
 		model_params: {'temperature': 0.1}}, 
+	'Rusko-český překladatel': {pipeline: function(text){ai.chat(text)},  
+		goal: "Překládám do ruštiny nebo z rušinty. Prostě ťukni, mluv rusky nebo česky, a ťukni znovu pro překlad.", 
+		messages: {
+			system: 
+				`Jsi přesný překladatel mezi ruštinou a češtinou, který nic nekomentuje, nepřidává a nemění význam vět. Snažíš se překládat co nejpřesněji.
+				`,	
+			user:
+				`Přelož následující text co nejpřesněji bez vlastních komentářů mezi ruštinou a češtinou.
+
+				Text: 
+				{}
+				`, 
+			remember: 0
+		},
+		model_params: {'temperature': 0.1}}, 
 	'Writer': {pipeline: function(text){ai.chat(text)}, 
 		goal:
 			`I help you to prepare a text exactly as you say it.
@@ -558,6 +573,8 @@ class OpenAIRecorder extends Recorder {
 class Synthesizer {
 	constructor(){
 		this.czechChars = /[ěščřžýáíéúůďťň]/i; 
+		this.cyrillic = /[джзийлпнтфцчшщъыьэюяДЖЗИЙЛПНТФЦЧШЩЪЫЬЭЮЯ]/i; //[инп]/i; 
+
 		this.voices = this.getBestVoices();
 		}
 
@@ -601,6 +618,8 @@ class Synthesizer {
 		const substring = str.substring(0, 100);
 		if (this.czechChars.test(substring))
 			return this.voices['cs'];
+		else if (this.cyrillic.test(substring))
+			return this.voices['ru'];
 		else
 			return this.voices['en'];
 		}
