@@ -1,8 +1,6 @@
 
 # Prototype of multi-lingual voice chat interface to control computer
 
-(Publication with insights is in the making.)
-
 ## Purpose of this prototype
 
 - Test viability of a voice controlled interface to launch any service on the computer in general language with speech responses. 
@@ -11,7 +9,6 @@
 - Multi-lingual performance and reliability. 
 - Learn prompt design and prompt strategies. 
 
-
 ### Demo
 
 
@@ -19,11 +16,15 @@
 
 _Note that one function, the inbox summary is just a dummy response. The point was not to implement all integrations (GPT is great at summarizing so there's not much to test there), but to test how the voice interface feels. All except the summarization is real._
 
+### Insights
+
+[Invisible Phone: Will AI spawn new fully conversational “I-Phone”?](https://medium.com/@myneur/invisible-phone-will-ai-spawn-new-fully-conversational-i-phone-09acc4bdf106)
+
 ## Installation on Mac
 
 - It uses [Python 3](https://www.python.org/) and is not tested with older versions.
 - Install dependencies: `pip3 install -r requirements.txt`
-- Set your [OpenAI API key](https://platform.openai.com/account/api-keys): `export OPENAI_API_KEY="<paste-your-OpenAI-API-key>"` and add this line to `~/.bash_profile`
+- Set your [OpenAI API key](https://platform.openai.com/account/api-keys): `export OPENAI_API_KEY="<paste-your-OpenAI-API-key>"` and add this line to `~/.bash_profile` or `~/.zshrc` etc.
 - Change prefered voice names in `data/memory.yaml`. The voices can be installed in MacOS Preferences > Accessibility > Spoken language. 
 
 ## How to it use on Mac

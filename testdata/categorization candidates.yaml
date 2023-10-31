@@ -1,0 +1,172 @@
+Commands: 
+  - Find the nearest coffee shop.
+  - Get me directions to Central Park.
+  - How long is the commute to the airport?
+  - Draft an email to John with the subject "Project Update."
+  - Summarize my inbox.
+  - Find the most recent email from Mike about the budget.
+  - Create a task to buy groceries on Saturday.
+  - What’s on the top of my todo for home?
+  - Search for the top five vacation destinations in Europe.
+  - Schedule a call with Sarah next Wednesday at 2 PM.
+  - |
+    Translate the following sentence into French: "Where is the train station?"
+  - Send it to me by mail
+  - Look for the best sushi restaurants in town.
+  - Provide walking directions to the nearest library.
+  - Estimate the driving time to the cinema.
+  - Compose an email to Emily about "Weekend Plans."
+  - Give me an overview of yesterday's inbox.
+  - Search for the latest email from Lisa regarding "Presentation."
+  - Add "pick up dry cleaning" to my to-do list for Thursday.
+  - Sort my work tasks by deadline.
+  - Find the most popular tourist attractions in New York City.
+  - Book a video conference with the marketing team for Monday at 10 AM.
+  - Translate "How much does this cost?" into Spanish.
+  - Email me the translation.
+  - Show me the top news headlines today.
+  - Search for vegan recipes online.
+  - Find the best route to the nearest hospital.
+  - Draft a thank you note for my coworker, Alex.
+  - Show me the most recent email from Sam discussing "Invoice Details."
+  - Prioritize my to-do list items based on importance.
+  - Look up the weather forecast for tomorrow.
+
+Commands categorized by AI:
+  - Action, Object, Location: Find the nearest coffee shop.
+  - Action, Object, Target: Get me directions to Central Park.
+  - Action, Object, Location: How long is the commute to the airport?
+  - Action, Recipient, Subject: Draft an email to John with the subject "Project Update."
+  - Action, Object: Summarize my inbox.
+  - Action, Subject, Filter: Find the most recent email from Mike about the budget.
+  - Action, Object, Date: Create a task to buy groceries on Saturday.
+  - Action, Filter: What’s on the top of my todo for home?
+  - Action, Object, Filter: Search for the top five vacation destinations in Europe.
+  - Action, Subject, Date, Time: Schedule a call with Sarah next Wednesday at 2 PM.
+  - Action, Object, Target Language: 'Translate the following sentence into French: "Where is the train station?"'
+  - Action, Object: Send it to me by mail.
+
+Categories identified:
+  - Action: The main verb, such as find, search, draft, translate, or schedule.
+  - Subject: The main topic or focus, e.g. email, task, or translation.
+  - Object: A specific element within the subject, like "coffee shop" or "Central Park."
+  - Recipient: The person to whom the action is directed, e.g. John, Sarah.
+  - Date and Time: Relevant timeline details, such as specific dates or time periods.
+  - Location: Place-related information, including names of cities, venues or landmarks.
+  - Filter: Criteria or keywords by which to narrow down the search, like "vacation destinations in Europe" or "latest email about the budget."
+
+Exploring classification into categories:
+  Prompt: |
+    For each of the commands above create a list what do you classify as: Action, Subject, Object, Recipient, Date or Time, Location, Filter, content. 
+    When the class is missing, write ‚None‘. 
+
+    Example: 
+    Command: Location: Find the nearest coffee shop.
+    Action: Find
+    Subject: ‚None‘
+    Object: coffee shop
+    Recipient: ‚None‘
+    Date or Time:
+    Location: nearest 
+    Filter: ‚None‘
+
+    Do such list for each of the commands you mentioned. 
+
+  AI Reply:
+  - q: Find the nearest coffee shop.
+    Action: Find
+    Subject: None
+    Object: coffee shop
+    Recipient: None
+    Date or Time: None
+    Location: nearest
+    Filter: None
+  - q: Get me directions to Central Park.
+    Action: Get
+    Subject: directions
+    Object: None
+    Recipient: None
+    Date or Time: None
+    Location: Central Park
+    Filter: None
+  - q: How long is the commute to the airport?
+    Action: How long
+    Subject: commute
+    Object: None
+    Recipient: None
+    Date or Time: None
+    Location: airport
+    Filter: None
+  - q: Draft an email to John with the subject "Project Update."
+    Action: Draft
+    Subject: email
+    Object: None
+    Recipient: John
+    Date or Time: None
+    Location: None
+    Filter: "Project Update"
+  - q: Summarize my inbox.
+    Action: Summarize
+    Subject: inbox
+    Object: None
+    Recipient: None
+    Date or Time: None
+    Location: None
+    Filter: None
+  - q: Find the most recent email from Mike about the budget.
+    Action: Find
+    Subject: email
+    Object: None
+    Recipient: Mike
+    Date or Time: most recent
+    Location: None
+    Filter: budget
+  - q: Create a task to buy groceries on Saturday.
+    Action: Create
+    Subject: task
+    Object: groceries
+    Recipient: None
+    Date or Time: Saturday
+    Location: None
+    Filter: None
+  - q: What’s on the top of my todo for home?
+    Action: What’s on the top
+    Subject: todo
+    Object: None
+    Recipient: None
+    Date or Time: None
+    Location: home
+    Filter: None
+  - q: Search for the top five vacation destinations in Europe.
+    Action: Search
+    Subject: vacation destinations
+    Object: None
+    Recipient: None
+    Date or Time: None
+    Location: Europe
+    Filter: top five
+  - q: Schedule a call with Sarah next Wednesday at 2 PM.
+    Action: Schedule
+    Subject: call
+    Object: None
+    Recipient: Sarah
+    Date or Time: next Wednesday at 2 PM
+    Location: None
+    Filter: None
+  - q: Translate the following sentence into French: "Where is the train 
+    station?"
+    Action: Translate
+    Subject: sentence
+    Object: "Where is the train station?"
+    Recipient: None
+    Date or Time: None
+    Location: None
+    Filter: French
+  - q: Send it to me by mail.
+    Action: Send
+    Subject: it
+    Object: None
+    Recipient: me
+    Date or Time: None
+    Location: None
+    Filter: mail
