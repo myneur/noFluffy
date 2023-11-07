@@ -16,6 +16,8 @@ class AI:
 	conf = None
 	models = ['gpt-3.5-turbo', 'gpt-4']
 	key = None
+	#organization = None
+	#client = None
 
 	def __init__(self, mode=None, model=0):
 		self.model = model
@@ -30,6 +32,7 @@ class AI:
 		
 		if not AI.key:
 			AI.key = os.environ.get('OPENAI_API_KEY')
+			#AI.organization = os.environ.get('OPENAI_ORGANIZATION_ID')
 			if not AI.key:
 				with open('../private.key', 'r') as key:	# TODO read just once
 					AI.key = key.read().strip()
@@ -60,7 +63,8 @@ class AI:
 		""" After hours of inactivity it typically fails: trying to debug how to make it robust: """
 		t = time.time()
 		if self.refreshAfter < t - self.lastUsedTime:
-			openai.api_key = AI.key # TODO will it really work?
+			openai.api_key = AI.key # TODO will it really work? Can we depart from it? 
+			#self.client = openai.OpenAI(organization=self.organization) # TODO move to using 
 		self.lastUsedTime = t
 
 	def load_config(self):
@@ -104,6 +108,18 @@ class AI:
 			return None
 
 		return transcript
+
+	def text_to_voice(self, text):
+		#speech_file_path = self.file = "/tmp/ch.sl8.jewel.mp3" #Path(__file__).parent / "speech.mp3"
+		response = openai.audio.speech.create(
+		  model="tts-1", # tts-1, tts-1-hd
+		  voice="alloy", #alloy, echo, fable, onyx, nova, and shimme
+		  #speed=1.0,
+		  #response_format=mp3 #mp3, opus, aac, flac
+		  input=text
+		)
+		#response.stream_to_file(speech_file_path)
+		return response #.content for byte stream
 
 	def chat(self, question): 
 		self.keep_last_messages()

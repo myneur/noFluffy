@@ -585,9 +585,10 @@ class Synthesizer {
 			//set best ranked voice per lang
 			window.speechSynthesis.getVoices().forEach(voice => {
 				let lang = voice.lang.substring(0,2);
-				if(! (lang in this.voices))
+				//content.innerHTML += "<br/>"+ lang + ":"+ voice.name;
+				if(! (lang in this.voices)){
 					this.voices[lang] = voice;
-				else {
+				} else {
 					//if(voice.name.toLowerCase().includes('premium')) this.voices[lang] = voice;
 					let candidateRank = ranks.findIndex(rank => voice.name.toLowerCase().includes(rank));
 					let currentRank = ranks.findIndex(rank => this.voices[lang].name.toLowerCase().includes(rank));
@@ -633,6 +634,7 @@ class Synthesizer {
 			utterance.text = this.simplify2read(text);;
 			utterance.rate = rate;
 
+			//content.innerHTML += utterance.voice.lang + ":" + utterance.voice.name;
 			utterance.onend = function(event) {
 				if(wakelock)
 					try { wakelock.release()} catch {}
