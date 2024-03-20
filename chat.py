@@ -70,25 +70,33 @@ class Chat:
 
 			# Exit by Escape
 			if prompt == escape:
-				s = self.ai.stats.print()
-				if self.log:
-					self.logger.log(s)
-				break
+				if self.rec.recording:
+					self.rec.stop()
+					print("Stopped")
+					continue
+				else:
+					s = self.ai.stats.print()
+					if self.log:
+						self.logger.log(s)
+					break
 
-			if self.rec.recording and len(prompt) == 0:
-				self.transcript_recording()
+			if self.rec.recording:
+				question = self.transcript_recording()
+				if prompt == 'p':
+					question += "\n——————————\n" + self.paste()
+				self.run(question, True)
 
 			else:
 				functions = {
-					'<': (lambda x: (self.ai.load_config(), self.ai.clear_messages())),
+					'<': (lambda x: (self.ai.load_config(), self.ai.clear_messages())),	
 					'>': self.response_to_JSON,
-					'f': self.toggle_functions,
+					'f': self.toggle_functions,	# turns on a classifier that decides what to do from given functions
 					'i': self.pipeline.improve_prompt,
 					'm': self.print_messages,
-					'l': (lambda x: (print("Type note to log"), self.logger.log('- note: '+input()))),
+					'l': (lambda x: (print("Type note to log"), self.logger.log('- note: '+input()))), # write a message into a log
 					'p': (lambda x: self.get_input(self.paste())),
 					'c': self.copy_last_message_to_clipboard,
-					'v': self.switch_model,
+					'v': self.switch_model,	# switches AI model 
 					'@': self.mail_last_message
 					}
 				if prompt in functions.keys():
@@ -187,7 +195,6 @@ class Chat:
 		
 		text = transcript.text
 		print(text+'\n'); 
-		self.run(text, True)
 		return text
 
 	def ask(self, question, ai=None):
@@ -274,7 +281,9 @@ class Chat:
 	def print_messages(self, prompt=None):
 		for i, message in enumerate(self.ai.messages):
 			print(str(i) + ":")
-			print(message['content'], "\n")
+			response = message['content']
+			response = self.print_blocks(self.convert.split_to_MD_blocks(response))
+			print(response, "\n")
 
 	def response_to_JSON(self, prompt):
 		try:

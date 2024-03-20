@@ -452,9 +452,9 @@ models:
         gpt-3.5-turbo:
             limit: 16000
             price:
-                prompt: 0.001
-                completion: 0.002
-            from: Dec-11-2023
+                prompt: 0.0005
+                completion: 0.0015
+            from: Feb-16-2024
         gpt-4-1106-preview:
             limit: 128000
             price:
