@@ -3,7 +3,7 @@ modes: # default is 1st, underscored are hidden used by system
         goal: I'll reply concisely by voice with all the knowledge of GPT-3.
         version: 0.2
         messages:
-            system: You are a concise assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Informal tone of voice.
+            system: You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information.
             user: "{}"
     assistant:
         goal: I'm answering like GPT-3.
@@ -199,7 +199,7 @@ modes: # default is 1st, underscored are hidden used by system
             remember: 0
         model_params:
             temperature: 0
-            model: 'gpt-4'
+            model: 'gpt-4o'
     text_to_imap:
 # TODO does not reliably provide valid IMAP search string
         messages:
@@ -274,7 +274,7 @@ modes: # default is 1st, underscored are hidden used by system
                 You can not suggest changes in the USER TEXT, USER INPUT or REQUEST. Suggest only changes outside of these parts of the PROMPT. 
         model_params:
             temperature: 0
-#            model: 'gpt-4'
+#            model: 'gpt-4o'
     _classifier:
         goal: I identify requests to perform actions
         version: 0.3
@@ -440,7 +440,7 @@ modes: # default is 1st, underscored are hidden used by system
                 When decided on the time, thank him and confirm the meeting and recap the meeting details.
                 
         model_params:
-            model: 'gpt-4'
+            model: 'gpt-4o'
 models:
     voice:
         whisper-1:
@@ -448,31 +448,19 @@ models:
             price: 0.006
             unit: $/min
     chat:
-        priceUnit: $/1000
-        gpt-3.5-turbo:
-            limit: 16000
-            price:
-                prompt: 0.0005
-                completion: 0.0015
-            from: Feb-16-2024
-        gpt-4-1106-preview:
+        priceUnit: M
+        gpt-4o-mini:
             limit: 128000
             price:
-                prompt: 0.01
-                completion: 0.03
-        gpt-4:
-            limit: 8192
-            price: 
-                prompt: 0.03
-                completion: 0.06
-            rateLimit:
-                requests: 200
-                unit: 40k tokens/min
-    _gpt-4-32k:
-            limit: 32768
+                prompt: 0.15
+                completion: 0.6
+            updated: Oct 2023
+        gpt-4o:
+            limit: 128000
             price:
-                prompt: 0.06
-                completion: 0.12
+                prompt: 5
+                completion: 15
+            updated: Oct 2023
     completion:
         text-davinci-003: 
             limit: 2049

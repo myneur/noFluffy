@@ -374,7 +374,9 @@ class Synthesizer:
 
 		# remove what my pipelines commented out
 		text = re.compile(r"(>>>.*?<<<)", re.DOTALL).sub("", text)
-		
+
+		# remove spoken formatting
+		text = text.replace('**', '')		
 		
 		# keep just first lines of table
 		#text = re.compile(r"^\|.*?\|$", re.DOTALL|re.MULTILINE).sub("Example table.\n", text) # matches lines despite MULTLINE

@@ -156,17 +156,17 @@ var _texts = {
 
 var _modes = {
 	'mini: Concise factual': {pipeline: function(text){ai.chat(text)}, 
-		goal: "I'll reply concisely by voice with all the knowledge of GPT-3.",
+		goal: "I'll reply concisely by voice.",
 		messages: {
 			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
 		model_params: {}},
 	'Concise factual': {pipeline: function(text){ai.chat(text)}, 
-		goal: "I'll reply concisely by voice with all the knowledge of GPT-4.\nGPT-4 is better at understanding more complex relations in the text, but it is 10× more expensive than GPT-3.",
+		goal: "I'll reply concisely with the more powerful 4o model.\nIt is better at understanding more complex relations in the text, but it's also 30× more expensive than the mini.",
 		messages: {
 			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
 		model_params: {'model': 'gpt-4o', 'temperature': 0.5}}, 
 	'Helpful assistant': {pipeline: function(text){ai.chat(text)}, 
-		goal: "I'm the default GPT-4o assistant. I'm 10× more expensive than GPT-3.",
+		goal: "I'm the default GPT-4o assistant. I'm 30× more expensive than the model mini, and more chatty.",
 		messages: {
 			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
 		model_params: {'model': 'gpt-4o'}}, 
@@ -609,10 +609,11 @@ class Synthesizer {
 			}
 		}
 
-	simplify2read(text){
-		
+	simplify2read(text){		
 		let processed = text.replace(/(```.*?```)/gs, "Example code.\n"); // remove code blocks
 		processed = processed.replace(/`/g, "'"); // it reads it as 'back quote'
+
+		processed = processed.replace(/\*+(.*?)\*+/g, '$1') // it pronounces markdown formatting
 
 		// unwoke by removing unreadable gender fluff
 		processed = processed.replace(/(\p{L}{3,})(\/á)|(\/a)|\(a\)(?=\s|$)/ug, '$1');
@@ -844,6 +845,7 @@ function enhance4screen(text){
 	//text = text.replace(/(?:\s*)\*\*([\s\S]*?)\*\*\s*/gm, '<strong>$1</strong>\n');
 	text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 	//text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
+	text = text.replace(/^###+ (.+)$/gm, '<h3>$1</h3>\n')
 	text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>\n')
 	text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>\n')
 	

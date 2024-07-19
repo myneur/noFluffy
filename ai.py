@@ -14,7 +14,7 @@ import re
 class AI:
 	modes = None
 	conf = None
-	models = ['gpt-3.5-turbo', 'gpt-4']
+	models = ['gpt-4o-mini', 'gpt-4o']
 	key = None
 	#organization = None
 	#client = None
