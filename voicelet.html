@@ -155,16 +155,21 @@ var _texts = {
 	}
 
 var _modes = {
-	'Concise factual': {pipeline: function(text){ai.chat(text)}, 
+	'mini: Concise factual': {pipeline: function(text){ai.chat(text)}, 
 		goal: "I'll reply concisely by voice with all the knowledge of GPT-3.",
 		messages: {
-			system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."},
+			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
 		model_params: {}},
-	'GPT4: Concise factual': {pipeline: function(text){ai.chat(text)}, 
-		goal: "I'll reply concisely by voice with all the knowledge of GPT-4.\nGPT-4 is better at understanding more complex relations in the text, but it is 20× more expensive than GPT-3.",
+	'Concise factual': {pipeline: function(text){ai.chat(text)}, 
+		goal: "I'll reply concisely by voice with all the knowledge of GPT-4.\nGPT-4 is better at understanding more complex relations in the text, but it is 10× more expensive than GPT-3.",
 		messages: {
-			system: "You are a concise assistant that answers in a way that is easy to listen by reading. No formalities, appologies or confirmations. Informal tone of voice."},
-		model_params: {'model': 'gpt-4', 'temperature': 0.5}}, 
+			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
+		model_params: {'model': 'gpt-4o', 'temperature': 0.5}}, 
+	'Helpful assistant': {pipeline: function(text){ai.chat(text)}, 
+		goal: "I'm the default GPT-4o assistant. I'm 10× more expensive than GPT-3.",
+		messages: {
+			system: "You are a concise factual assistant that answers in a way that is easy to understand by reading. No formalities, apologies or confirmations. Your goal is to present correct information."},
+		model_params: {'model': 'gpt-4o'}}, 
 	'Translator': {pipeline: function(text){ai.chat(text)},  
 		goal: "I translate sentences accurately and keep the meaning unchanged.",
 		messages: {
@@ -186,7 +191,7 @@ var _modes = {
 				Translation:`, 
 			remember: 0
 		},
-		model_params: {'temperature': 0.1}}, 
+		/*model_params: {'temperature': 0.1}}, 
 	'Rusko-český překladatel': {pipeline: function(text){ai.chat(text)},  
 		goal: "Překládám do ruštiny nebo z rušinty. Prostě ťukni, mluv rusky nebo česky, a ťukni znovu pro překlad.", 
 		messages: {
@@ -200,7 +205,7 @@ var _modes = {
 				{}
 				`, 
 			remember: 0
-		},
+		},*/
 		model_params: {'temperature': 0.1}}, 
 	'Writer': {pipeline: function(text){ai.chat(text)}, 
 		goal:
@@ -390,7 +395,7 @@ class AI {
 
 		let params = this.modes[mode.value].model_params;
 		if(!('model' in params))
-			params.model = 'gpt-3.5-turbo';
+			params.model = 'gpt-4o-mini';
 		params.messages = this.messages;
 
 		try {
@@ -832,9 +837,15 @@ function enhance4screen(text){
 	
 	text = text.replace(/\n/g, "<br/>\n");
 
-	// rather convert markdown to html
-	//pattern = /(?:\s*)\*\*([\s\S]*?)\*\*\s*/gm;
-	//text = text.replace(pattern, '<strong>' + '$1' + '</strong>\n');
+	// convert markdown to html
+
+	// WARNING! This will replace elements with ** whatever ** at the same line on the code too and I don't care for this prototype. 
+
+	//text = text.replace(/(?:\s*)\*\*([\s\S]*?)\*\*\s*/gm, '<strong>$1</strong>\n');
+	text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+	//text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
+	text = text.replace(/^## (.+)$/gm, '<h2>$1</h2>\n')
+	text = text.replace(/^# (.+)$/gm, '<h1>$1</h1>\n')
 	
 	return text
 }
