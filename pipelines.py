@@ -78,8 +78,8 @@ class Pipelines:
 
 
 	def read_message(self, text):
-		#filters = self.chat.ask(text, AI('text_to_imap'))
-		filters = self.chat.ask(text, AI('read_message'))
+		#filters = self.chat.ask(text, AI('_text_to_imap'))
+		filters = self.chat.ask(text, AI('_read_message'))
 		filters = self.convert.yaml2json(filters)
 		filters = self.convert.remove_empty(filters)
 		try:
@@ -118,7 +118,7 @@ class Pipelines:
 	def send_recent(self, question): 
 		print('…preparing message')
 		chat = self.chat
-		response = chat.ask(question, AI('send_message'))
+		response = chat.ask(question, AI('_send_message'))
 		if response:
 			try:
 				data = self.convert.yaml2json(response)
@@ -134,7 +134,7 @@ class Pipelines:
 					data['message'] = chat.ai.get_last_reply()['message']
 
 				try:
-					summary = chat.ask(data['message'], AI('summarize_to_subject'))
+					summary = chat.ask(data['message'], AI('_summarize_to_subject'))
 					data['summary'] = summary if summary else "Our last conversation"
 					response = "Sending message to: {}.\nBy: {}.\nSubject: {}.".format(data['recipients'], data['service'], data['summary'])
 

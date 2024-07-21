@@ -11,7 +11,7 @@ modes: # default is 1st, underscored are hidden used by system
         messages:
             system: You are a helpful assistant.
             user: "{}"
-    writeFriend:
+    to_written_form:
         messages: 
             system: |
                 Transform dictated text into a written message.
@@ -51,7 +51,7 @@ modes: # default is 1st, underscored are hidden used by system
             logit_bias: {'From': 1, 'To': 1, 'Translation': 1, 'Text:': 0}
         pipeline: [translation]
 #       TODO: confused with YAML-like input (e. g. starting with '-' > preprocess  )
-    writer:
+    dictate&edit:
         goal: |
             I help you to prepare a text exactly as you say it.
             - Tell me what to write
@@ -102,7 +102,7 @@ modes: # default is 1st, underscored are hidden used by system
             remember: 3
         model_params:
             temperature: 0
-    corrector:
+    correct:
         goal: I'm correcting grammar in your inputs. 
         version: 0.2
         messages:
@@ -127,7 +127,7 @@ modes: # default is 1st, underscored are hidden used by system
 #        pipeline: [nurse]
         model_params:
             temperature: 0
-    send_message:
+    _send_message:
         goal: I transform requests to send a message to YAML for API calls
 #           TODO indentify multiple recipients
         version: 0.4
@@ -161,7 +161,7 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             temperature: 0
             stop: "###"
-    read_message:
+    _read_message:
         messages:
             system: |
                 You are a convertor that converts a REQUEST to search messages into the following YAML FORMAT according to INSTRUCTIONS. 
@@ -200,7 +200,7 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             temperature: 0
             model: 'gpt-4o'
-    text_to_imap:
+    _text_to_imap:
 # TODO does not reliably provide valid IMAP search string
         messages:
             system: You are a convertor that converts a REQUEST to get a message into the IMAP search criterion format. Reply only with the IMAP search criterion. No other comments. 
@@ -209,7 +209,7 @@ modes: # default is 1st, underscored are hidden used by system
 
                 REQUEST:
                 {}
-    summarize_to_subject:
+    _summarize_to_subject:
         goal: I create brief summaries
         version: 0.1
         messages:
@@ -223,7 +223,7 @@ modes: # default is 1st, underscored are hidden used by system
             remember: 1
         model_params:
             temperature: 0
-    summarize_message:
+    summarize:
         goal: I summarize long mails
         version: 0.1
         messages:

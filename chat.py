@@ -239,10 +239,12 @@ class Chat:
 
 	def print_blocks(_, blocks):
 		for block in blocks:
-			block['text'] = block['text'].replace('[', "\\[") # rich library uses that as formatting
+			block['text'] = block['text'].replace('[', "\\[") # rprint rich library uses that as formatting
+			
 			if block['type'] == 'code':
 				rprint("——————————"+block['text'])
 			else: 
+				block['text'] = re.sub(r'\*+(.*?)\*+', r'[bold]\1[/bold]', block['text']) # convert markdown bold to rprint; other formatting does not bother me yet
 				rprint(block['text'])
 
 	def copy_last_message_to_clipboard(self, prompt=None):

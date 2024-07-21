@@ -589,7 +589,7 @@ class Convertor:
 
 	def split_to_MD_blocks(_, text):
 		objectTypes = {
-			'code': r'(?m)^\s*```(\w*)([\s\S]*?)```\s*$', 
+			'code': r'(?m)^\s*```([\s\S]*?)```\s*$', # ?m multiline ^$ ```(lang)(code)``` *? nongreedy
 			'list': r"^(?: *[\*\-+]|\d+\.)[^\n]*$", 
 			'table': r"^[|].*[|]$([\n^[|].*[|]$]+)?"}
 
@@ -598,7 +598,7 @@ class Convertor:
 		# TODO detect all markdown
 
 		objects = re.split(objectTypes['code'], text)
-		i = 0
+		#i = 0
 		for i, item in enumerate(objects): 
 			objects[i] = {'text': item} 
 			if i%2:
