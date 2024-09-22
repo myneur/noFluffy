@@ -158,7 +158,6 @@ class Chat:
 		print(self.ai.switch_model() +' model chosen')
 
 	def run(self, question, voice_recognized=False): 
-
 		response = self.execute(question)
 		self.reply(response)
 
@@ -202,9 +201,7 @@ class Chat:
 			ai = self.ai
 			if self.log:
 				self.logger.log('- |\n  '+question.replace('\n', '\n  '))
-
 		response = ai.chat(question)
-		
 		if 'choices' in response:
 			reply = response['choices'][0]['message']['content']
 			#return reply
@@ -213,10 +210,10 @@ class Chat:
 
 			except Exception as e:
 				print(e)
-
 			return reply
 		else:
 			if 'error' in response:
+				print("Error in AI response")
 				mess = str(response['error'])
 				if mess:
 					print(mess)

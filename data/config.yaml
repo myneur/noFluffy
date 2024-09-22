@@ -458,8 +458,8 @@ models:
         gpt-4o:
             limit: 128000
             price:
-                prompt: 5
-                completion: 15
+                prompt: 2.5
+                completion: 10
             updated: Oct 2023
     completion:
         text-davinci-003: 

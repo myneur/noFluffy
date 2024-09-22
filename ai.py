@@ -11,6 +11,8 @@ import time
 import yaml
 import re
 
+import traceback
+
 class AI:
 	modes = None
 	conf = None
@@ -145,16 +147,8 @@ class AI:
 		t = time.time()
 
 		try:
-			
-			# TODO retry with openai.ChatCompletion.create(**params)
-			
-			response = openai.ChatCompletion.create(**params)
 
-			t = time.time()-t
-			usage = response['usage']
-			usage['time'] = t
-			usage['items'] = len(response['choices'])
-			self.stats.add(usage, self.mode)
+			response = openai.ChatCompletion.create(**params) # TODO retry with openai.ChatCompletion.create(**params)
 		
 		except (openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
 			print("Error: ", f"The AI is tired. Waiting 5 seconds… ({type(e).__name__})")
@@ -167,12 +161,29 @@ class AI:
 				self.chat(question)
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
+			return {'error': f"Error in request: {type(e).__name__}: {e}", 'time':t}
 
 		except Exception as e:
 			t = time.time()-t
 			self.stats.add({'errors': 1, 'time': t}, self.mode)
-			return {'error': f"Error: {type(e).__name__}: {e}", 'time':t}
+			print(e.args)
+			print(e.__traceback__)
+			print(traceback.format_exc())
+			print(e.__cause__)
+			print(e.__context__)
+			return {'error': f"Error in chat: {type(e).__name__}: {e}", 'time':t}
+
+		try:
+			t = time.time()-t
+			usage = response['usage']
+			usage['time'] = t
+			usage['items'] = len(response['choices'])
+			self.stats.add(usage, self.mode)
+		except Exception as e:
+			self.stats.add({'errors': 1, 'time': t}, self.mode)
+			print("Error in logging time")
+			print(traceback.format_exc())
+
 
 		self.tokensUsed = response['usage']['total_tokens']
 		messages.append(self.message_from_template('assistant', response['choices'][0]['message']['content']))

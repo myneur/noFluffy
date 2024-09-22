@@ -25,6 +25,7 @@ from unidecode import unidecode
 
 from geopy.distance import geodesic as distance
 
+import traceback
 
 demoString = """- You have a reply from Mark regarding designs, asking for ideas on how to present the product,
 - important mails from Alex about upcoming product release plan and Serena about Strategy and growth.
@@ -662,17 +663,24 @@ class Stats:
 		self.last = {}
 
 	def add(self, dictionary, what='general'):
-		if what not in Stats.stats.keys():
-			Stats.stats[what] = {'items':0}
+		try:
+			if what not in Stats.stats.keys():
+				Stats.stats[what] = {'items':0}
 
-		stat = Stats.stats[what]
-		for key in dictionary.keys():
-			if key not in stat.keys():
-				stat[key] = float(dictionary[key])
-			else:
-				stat[key] += float(dictionary[key])
+			stat = Stats.stats[what]
+			for key in dictionary.keys():
+				try:
+					if key not in stat.keys():
+						stat[key] = float(dictionary[key])
+					else:
+						stat[key] += float(dictionary[key])
+				except:
+					pass
 
-		self.last[what] = dictionary
+			self.last[what] = dictionary
+		except:
+			print("Error logging")
+			print(traceback.format_exc())
 
 	def print(self):
 		output = "- stats:\n"
