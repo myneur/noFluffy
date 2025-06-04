@@ -1,0 +1,100 @@
+
+#listen, select {	
+	font-size: 24pt;}
+#content {		
+	font-size: 16pt;}
+#speed { 			
+	font-size: 18pt}
+#clear, #share  {	
+	font-size: 18pt;}
+
+@media screen and (max-width: 600px) {
+	#clear, #share  {
+		font-size: 12pt;
+	}
+	#content {
+		font-size: 14pt;
+	}
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	height: -webkit-fill-available;
+	margin: 0;
+	background-color: #260101;
+	color: #eee;
+}
+html{
+	height: -webkit-fill-available;
+}
+select {
+	background-color: #260101;
+}
+
+#buttons-container, #dropdown-container { 
+	display: flex;
+	flex-direction: row; 
+	justify-content: center; 
+	align-items: center; 
+	flex-wrap: nowrap;
+
+	display: flex;
+	flex-direction: row;
+}
+#dropdown-container { 
+	justify-content: left; 
+}
+
+#speed, #drop-down, #content, #listen, #clear, #share {
+	margin: 5px;
+	border: none;
+	flex-grow: 0;
+	flex-shrink: 0;
+
+}		
+#drop-down { 
+	flex-basis: 70%; 
+	max-width: 70%;
+	color: #fff;
+}
+
+#speed { 
+	flex-basis: 20%; 
+	max-width: 20%;
+	color: #ddd;
+}
+
+#content  { 
+	flex-basis: 80%; 
+	word-wrap: break-word;
+	overflow: auto;
+}
+
+pre, code{
+	color: #bbb;
+	font-size: 80%;
+	white-space: pre-wrap;
+}
+
+
+
+#clear, #share { 
+	flex-basis: 15%; 
+	min-height: 20pt;
+	border-radius: 5px;
+	background-color: #275950;
+	color: #eee;
+}
+#listen { 
+	flex-basis: 60%; 
+	min-height: 40pt;
+	border-radius: 100px;
+	background-color: #2A8C82;
+	color: #fff;
+}
+
+.guide{
+	color: #aaa;
+}

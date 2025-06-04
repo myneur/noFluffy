@@ -442,25 +442,50 @@ modes: # default is 1st, underscored are hidden used by system
         model_params:
             model: 'gpt-4o'
 models:
+    priceUnit: M
+    selected:
+        chat:
+            gpt-4o-mini:
+                purpose: general cheap
+                limit: 128k
+                price: [0.15, 0.6]
+                updated: Oct 2023
+            gpt-4.1:
+                purpose: intelligence
+                price: [2, 8]
+                limit: 1M
+                updated: Jun 2024
+        reasoning: 
+            o4-mini:
+                purpose: affordable reasoning
+                prince: [1.1, 4.4]
+            o3:
+                purpose: most powerful reasoning, universal, reasoning, math&science, text, understanding
+                price: [5, 20]
+        pricey:
+            gpt-4.5-preview:
+                purpopse: the most powerful
+                limit: 128k
+                price: [75, 150]
+    _functions: 
+        gpt-4o:
+            purpose: general with assistants and functions
+            limit: 128k
+            price: [2.5, 10]
+            updated: Oct 2023
+    _todo-new-endpoint:
+        chatgpt-4o:
+            todo: chat.openai.com endpoint
+            purpose: memory and browsing, latest ChatGPT
+            limit: 128k
+            price: [5, 15]
+            updated: Oct 2023
     voice:
         whisper-1:
-            limit: 25000000
+            limit: 25M
             price: 0.006
             unit: $/min
-    chat:
-        priceUnit: M
-        gpt-4o-mini:
-            limit: 128000
-            price:
-                prompt: 0.15
-                completion: 0.6
-            updated: Oct 2023
-        gpt-4o:
-            limit: 128000
-            price:
-                prompt: 2.5
-                completion: 10
-            updated: Oct 2023
+
     completion:
         text-davinci-003: 
             limit: 2049

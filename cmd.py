@@ -10,4 +10,3 @@ if sys.argv[1] == '-yt':
             method = par
             continue
         scraper.youtube(par, method)
-

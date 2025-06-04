@@ -27,7 +27,7 @@ import traceback
 
 guide = """– 'Listen': ENTER to start & stop
 – 'Exit': ESC (+Enter)
-- 'Functions' are {}, using {}
+- 'Version' {}, 'Functions' are {}
 – 'Clear' conversation: 0 """
 
 class Chat:
@@ -52,7 +52,7 @@ class Chat:
 
 		rprint("\nI'm '{}' now. I can become:\n{}".format(self.ai.mode, str(options)))
 
-		rprint(guide.format('off' if self.execute == self.pipeline.execute else "'on'", self.ai.models[self.ai.model]))
+		rprint(guide.format(self.ai.models[self.ai.model], 'off' if self.execute == self.pipeline.execute else "'on'"))
 
 		cnt = len(self.ai.messages)-1
 		if cnt:

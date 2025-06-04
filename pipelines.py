@@ -20,15 +20,11 @@ class Pipelines:
 		pipeline = mode['pipeline'] if 'pipeline' in mode else None
 		print('…thinking\n')
 		if pipeline:
-			print(1)
 			for step in pipeline:
-				print(2)
 				if step in chat.ai.modes.keys():
 					text = chat.ask(text, AI(step))
 				elif step == 'self':
-					print(3)
 					text = chat.ask(text)
-					print(4)
 				else:
 					pipe = step.split('.')
 					if len(pipe)<2 or len(pipe[0])<1:

@@ -16,7 +16,6 @@ import traceback
 class AI:
 	modes = None
 	conf = None
-	models = ['gpt-4o-mini', 'gpt-4o']
 	key = None
 	#organization = None
 	#client = None
@@ -73,6 +72,10 @@ class AI:
 		with open('data/config.yaml', 'r') as file:
 			AI.conf = yaml.safe_load(file)
 		AI.modes = AI.conf['modes']
+		groups = ['chat', 'reasoning', 'pricey']
+		groups = AI.conf['models']['selected'].keys()
+		AI.models = [key for group in groups for key in AI.conf['models']['selected'][group].keys()]
+
 
 	def switch_model(self):
 		self.model = (self.model+1)%len(self.models)
@@ -130,13 +133,11 @@ class AI:
 		messages = self.messages
 		if(question):
 			messages.append(self.message_from_template('user', question))
-		
-		if 'model_params' in AI.modes[self.mode]:
-			params = AI.modes[self.mode]['model_params'].copy()
-		else:
-			params = {}
+				
+		params = AI.modes[self.mode]['model_params'].copy() if 'model_params' in AI.modes[self.mode] else {}
 		if 'model' not in params:
 			params['model'] = AI.models[self.model]
+		
 		params['messages'] = messages
 
 		if 'logit_bias' in params: 	# TODO words must be converted to integer tokens
@@ -148,7 +149,7 @@ class AI:
 
 		try:
 
-			response = openai.ChatCompletion.create(**params) # TODO retry with openai.ChatCompletion.create(**params)
+			response = openai.ChatCompletion.create(**params) 
 		
 		except (openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.APIConnectionError, openai.error.Timeout, openai.error.APIError) as e:
 			print("Error: ", f"The AI is tired. Waiting 5 seconds… ({type(e).__name__})")
