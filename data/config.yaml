@@ -449,11 +449,11 @@ models:
                 purpose: general cheap
                 limit: 128k
                 price: [0.15, 0.6]
-                updated: Oct 2023
+                Updated: Jun 2024
             gpt-4.1:
                 purpose: intelligence
-                price: [2, 8]
                 limit: 1M
+                price: [2, 8]
                 updated: Jun 2024
         reasoning: 
             o4-mini:
@@ -461,8 +461,15 @@ models:
                 prince: [1.1, 4.4]
             o3:
                 purpose: most powerful reasoning, universal, reasoning, math&science, text, understanding
+                limit: 200k
                 price: [5, 20]
+                Updated: Jun 2024
         pricey:
+            o3-pro:
+                purpose: longer thinking o3 with agentic tools and web
+                limit: 200k
+                price: [20, 80]
+                updated: Jun 2024
             gpt-4.5-preview:
                 purpopse: the most powerful
                 limit: 128k

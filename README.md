@@ -66,7 +66,7 @@ The voicelet.html is ready to be run in a mobile browser.
 
 - Deploy voicelet.html on your site
 - Access it while adding your OpenAI API key as a parameter at the end of the url: `?key=<your-OpenAI API key>`
-- Or you can [try it here](https://www.hoursfrom.world/_functions/voicelet/?key=), if you add your API key at the end of the url. 
+- Or you can [try it here](https://myneur.github.io/noFluffy/?key=) – don't forget to add your API key!
 
 ### Limitations:
 On an iPhone, the voice recognition is inferior because it must use its native iOS voice recognition because of an OpenAI bug.

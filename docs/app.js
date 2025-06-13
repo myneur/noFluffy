@@ -571,7 +571,7 @@ function setupUI() {
 		catch (e) {
 			//log("Your phone can not speak:(")
 		}
-		if(ai.key == null)
+		if(ai.key == null || ai.key.length == 0)
 			content.innerHTML = "The ?key is not provided. It must be in address as ?key=<paste your key>\nIf you don't have it, get it on <a href='https://platform.openai.com/account/api-keys'>platform.openai.com/account/api-keys</a>"
 		else {
 			content.innerHTML  += text('guide');
