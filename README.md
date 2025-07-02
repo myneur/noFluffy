@@ -62,11 +62,11 @@ Simply editing or adding new modes will allow you to test prompts and pipelines.
 
 ## Usage in mobile phone
 
-The voicelet.html is ready to be run in a mobile browser. 
+The light JS version is ready to be run in a mobile browser for field tests. 
 
-- Deploy voicelet.html on your site
-- Access it while adding your OpenAI API key as a parameter at the end of the url: `?key=<your-OpenAI API key>`
-- Or you can [try it here](https://myneur.github.io/noFluffy/?key=) – don't forget to add your API key!
+- [Try here](https://myneur.github.io/noFluffy/?key=) – and add your OpenAI API key as a parameter at the end of the url: `?key=<your-OpenAI API key>`
+
+This version is just for testing prompts and predefined pipelines. It does not include the classificator deciding what to do and executing that.
 
 ### Limitations:
 On an iPhone, the voice recognition is inferior because it must use its native iOS voice recognition because of an OpenAI bug.
